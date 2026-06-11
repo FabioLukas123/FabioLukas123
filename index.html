@@ -71,16 +71,34 @@ a{ color:inherit; text-decoration:none; }
   color:var(--gold);
 }
 
-/* —— Revelação lenta, quase imperceptível —— */
-.reveal{
-  opacity:0;
-  transform:translateY(14px);
-  transition:opacity 1.6s cubic-bezier(.22,.61,.36,1), transform 1.6s cubic-bezier(.22,.61,.36,1);
+/* —— Animação (Motion) ——
+   Estados iniciais são definidos via JS para que a
+   página permaneça íntegra sem JavaScript. */
+.reveal{ will-change:opacity, transform, filter; }
+.w{ display:inline-block; will-change:opacity, transform, filter; }
+
+/* Fio de progresso de leitura — um único filete dourado */
+.progress{
+  position:fixed;
+  inset:0 0 auto 0;
+  height:1px;
+  background:var(--gold);
+  transform-origin:0 50%;
+  transform:scaleX(0);
+  z-index:50;
+  pointer-events:none;
 }
-.reveal.is-visible{ opacity:1; transform:none; }
+
+/* Permuta de letras no hover (nav) */
+.lswap{ display:inline-block; overflow:hidden; vertical-align:bottom; }
+.lswap .lswap-stack{ display:inline-block; position:relative; }
+.lswap .lswap-row{ display:block; white-space:pre; }
+.lswap .lswap-row span{ display:inline-block; will-change:transform; }
+.lswap .lswap-dup{ position:absolute; top:100%; left:0; color:var(--warm); }
+
 @media (prefers-reduced-motion: reduce){
-  .reveal{ opacity:1; transform:none; transition:none; }
   html{ scroll-behavior:auto; }
+  .progress{ display:none; }
 }
 
 /* ————————————————————————————————
@@ -609,22 +627,146 @@ footer .legal a:hover{ color:var(--ivory); }
   </div>
 </footer>
 
+<div class="progress" aria-hidden="true"></div>
+
+<script src="./assets/motion.min.js"></script>
 <script>
-/* Revelação lenta ao rolar — única animação da página. */
+/* ————————————————————————————————————————
+   Camada de movimento — Motion (motion.dev)
+   Princípio: movimento lento, curto e grave.
+   Nada salta. Tudo assenta.
+———————————————————————————————————————— */
 (function(){
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.querySelectorAll('.reveal').forEach(el => el.classList.add('is-visible'));
-    return;
+  if (!window.Motion) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const { animate, inView, scroll, stagger } = window.Motion;
+  const easeSettle = [0.22, 0.61, 0.36, 1];
+
+  /* — Divide um elemento em palavras, preservando <em> e <br> — */
+  function splitWords(el){
+    const words = [];
+    (function walk(node){
+      Array.from(node.childNodes).forEach(child => {
+        if (child.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          child.textContent.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) {
+              frag.appendChild(document.createTextNode(' '));
+            } else {
+              const w = document.createElement('span');
+              w.className = 'w';
+              w.textContent = part;
+              frag.appendChild(w);
+              words.push(w);
+            }
+          });
+          node.replaceChild(frag, child);
+        } else if (child.nodeType === 1 && child.tagName !== 'BR') {
+          walk(child);
+        }
+      });
+    })(el);
+    return words;
   }
-  const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-visible');
-        observer.unobserve(entry.target);
-      }
-    }
-  }, { threshold: 0.18 });
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  /* ————————————————————————————————
+     1 · Abertura — blur-fade palavra a palavra
+  ———————————————————————————————— */
+  const heroLabel = document.querySelector('.hero .label');
+  const heroTitle = document.querySelector('.hero h1');
+  const heroLede  = document.querySelector('.hero h1 + p, .hero p:not(.label)');
+  const heroFoot  = document.querySelector('.hero .foundation');
+
+  const titleWords = splitWords(heroTitle);
+  titleWords.forEach(w => { w.style.opacity = '0'; });
+  [heroLabel, heroLede, heroFoot].forEach(el => { if (el) el.style.opacity = '0'; });
+
+  animate(heroLabel,
+    { opacity: [0, 1], letterSpacing: ['.7em', '.42em'] },
+    { duration: 2.2, ease: easeSettle });
+
+  animate(titleWords,
+    { opacity: [0, 1], transform: ['translateY(.5em)', 'translateY(0)'], filter: ['blur(10px)', 'blur(0px)'] },
+    { duration: 1.5, delay: stagger(0.09, { startDelay: 0.45 }), ease: easeSettle });
+
+  animate(heroLede,
+    { opacity: [0, 1], transform: ['translateY(16px)', 'translateY(0)'], filter: ['blur(6px)', 'blur(0px)'] },
+    { duration: 1.6, delay: 1.5, ease: easeSettle });
+
+  animate(heroFoot,
+    { opacity: [0, 1] },
+    { duration: 1.8, delay: 2.1, ease: 'easeOut' });
+
+  /* ————————————————————————————————
+     2 · Parallax grave da abertura
+  ———————————————————————————————— */
+  scroll(
+    animate('.hero > .wrap',
+      { transform: ['translateY(0px)', 'translateY(110px)'], opacity: [1, 0.15] },
+      { ease: 'linear' }),
+    { target: document.querySelector('.hero'), offset: ['start start', 'end start'] }
+  );
+
+  /* ————————————————————————————————
+     3 · Fio de progresso de leitura
+  ———————————————————————————————— */
+  scroll(animate('.progress', { scaleX: [0, 1] }, { ease: 'linear' }));
+
+  /* ————————————————————————————————
+     4 · Revelação ao rolar, com escalonamento
+         entre irmãos da mesma seção
+  ———————————————————————————————— */
+  const reveals = Array.from(document.querySelectorAll('.reveal'))
+    .filter(el => !el.closest('.hero'));
+
+  reveals.forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(26px)';
+  });
+
+  reveals.forEach(el => {
+    const siblings = Array.from(el.parentElement.querySelectorAll(':scope > .reveal'));
+    const order = Math.max(siblings.indexOf(el), 0);
+    inView(el, () => {
+      animate(el,
+        { opacity: [0, 1], transform: ['translateY(26px)', 'translateY(0)'], filter: ['blur(8px)', 'blur(0px)'] },
+        { duration: 1.4, delay: 0.12 * order, ease: easeSettle });
+    }, { amount: 0.25 });
+  });
+
+  /* ————————————————————————————————
+     5 · O filete dourado da máxima se traça
+  ———————————————————————————————— */
+  const rule = document.querySelector('.creed .rule');
+  rule.style.transform = 'scaleX(0)';
+  rule.style.transformOrigin = '50% 50%';
+  inView('.creed', () => {
+    animate(rule, { scaleX: [0, 1] }, { duration: 1.8, delay: 0.3, ease: easeSettle });
+  }, { amount: 0.4 });
+
+  /* ————————————————————————————————
+     6 · Permuta de letras no hover (nav)
+  ———————————————————————————————— */
+  document.querySelectorAll('nav a').forEach(link => {
+    const text = link.textContent;
+    const row = cls => '<span class="lswap-row ' + cls + '">' +
+      Array.from(text).map(ch => '<span>' + (ch === ' ' ? '&nbsp;' : ch) + '</span>').join('') +
+      '</span>';
+    link.classList.add('lswap');
+    link.innerHTML = '<span class="lswap-stack">' + row('') + row('lswap-dup') + '</span>';
+
+    const letters = link.querySelectorAll('.lswap-row span');
+    link.addEventListener('mouseenter', () => {
+      animate(letters, { transform: 'translateY(-100%)' },
+        { duration: 0.45, delay: stagger(0.02), ease: easeSettle });
+    });
+    link.addEventListener('mouseleave', () => {
+      animate(letters, { transform: 'translateY(0%)' },
+        { duration: 0.45, delay: stagger(0.02), ease: easeSettle });
+    });
+  });
 })();
 </script>
 
