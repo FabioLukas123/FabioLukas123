@@ -106,9 +106,10 @@ export class CameraDirector {
       this.t += this.speed * dt * (this.hurry ? 2.2 : 1);
       if (this.t >= 1) this.t = 0; // loop the journey seamlessly
       const { p, look } = this._sampleRail(this.t);
-      // handheld sway so it never feels like a slider
-      p.x += Math.sin(time * 0.5) * 1.4;
-      p.y += Math.sin(time * 0.37) * 0.8;
+      // handheld sway so it never feels like a slider (calmed for reduced-motion)
+      const sway = this.calm ? 0.25 : 1.0;
+      p.x += Math.sin(time * 0.5) * 1.4 * sway;
+      p.y += Math.sin(time * 0.37) * 0.8 * sway;
       this.cam.position.lerp(p, 1 - Math.pow(0.001, dt));
       this._curLook.lerp(look, 1 - Math.pow(0.01, dt));
       this.cam.lookAt(this._curLook);

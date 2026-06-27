@@ -82,6 +82,11 @@ scene.add(mirror);
 
 // ---- camera director ---------------------------------------------------
 const director = new CameraDirector(camera, canvas);
+// honour reduced-motion: gentler drift, calmer lens
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  director.speed *= 0.45;
+  director.calm = true;
+}
 
 // ---- post processing ---------------------------------------------------
 const composer = new EffectComposer(renderer);
