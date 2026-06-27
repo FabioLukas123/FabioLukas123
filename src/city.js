@@ -244,8 +244,8 @@ export class City {
     // crater the framerate. A couple of camera-followed lights (in main.js)
     // give nearby contact light instead.
     this.lamps = [];
-    const lampGeo = new THREE.SphereGeometry(0.7, 12, 12);
-    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd79a });
+    const lampGeo = new THREE.SphereGeometry(0.5, 12, 12);
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffcf8a });
     const poleGeo = new THREE.CylinderGeometry(0.18, 0.26, 14, 8);
     const armGeo = new THREE.BoxGeometry(3.4, 0.4, 0.4);
     const poolTex = this._radialTex(0xffb765);
@@ -304,6 +304,10 @@ export class City {
     let h = opts.h ?? rand(60, 200);
     const setbacks = randInt(3, 6);
     const tex = opts.tex ?? this.windowTextures[randInt(0, this.windowTextures.length - 1)];
+    // most interiors are warm tungsten; a few read as cold fluorescent or
+    // green-shaded office light, so the skyline isn't one uniform amber.
+    const glow = opts.glow ?? (chance(0.78) ? 0xffb878
+      : chance(0.5) ? 0xbfd0ff : 0xb8e0c0);
 
     let baseY = 0;
     let curW = w, curD = d;
@@ -313,7 +317,7 @@ export class City {
       const geo = new THREE.BoxGeometry(curW, segH, curD);
       // emissive window map on the four sides; plain stone on top/bottom
       const sideMat = new THREE.MeshStandardMaterial({
-        map: tex.clone(), emissiveMap: tex, emissive: 0xffb878,
+        map: tex.clone(), emissiveMap: tex, emissive: glow,
         emissiveIntensity: 0.85, color: 0x20242e, roughness: 0.85, metalness: 0.1,
       });
       sideMat.map.repeat.set(Math.max(1, curW / 18), Math.max(1, segH / 22));

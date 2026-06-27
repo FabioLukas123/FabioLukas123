@@ -209,6 +209,38 @@ export class JazzEngine {
     if (onBeat && this._chord && Math.random() < (0.04 + 0.16 * I)){
       this._melody(t, this._chord);
     }
+
+    // --- a soft sustained pad underneath every bar: warm "room" body that
+    //     holds the harmony together between the comping stabs ---
+    if (onBeat && this._chord && whole % 4 === 0){
+      this._pad(t, this._chord);
+    }
+  }
+
+  _pad(t, chord){
+    const rootM = midi(chord.root, 3);
+    const shape = SHAPES[chord.shape] || SHAPES.min7;
+    const beatDur = 60 / this.bpm;
+    const dur = beatDur * 4.4;                 // slightly over a bar -> overlap
+    // a quiet cluster of the colour tones, gently detuned for a Rhodes-ish haze
+    [0, 2, 3].forEach((idx) => {
+      const s = shape[Math.min(idx, shape.length - 1)];
+      const m = rootM + s;
+      const o = this.ctx.createOscillator();
+      const o2 = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = "lowpass"; lp.frequency.value = 1400;
+      o.type = "sine"; o2.type = "triangle";
+      o.frequency.value = mtof(m); o2.frequency.value = mtof(m) * 1.004;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.028, t + 1.4);     // slow swell
+      g.gain.setValueAtTime(0.028, t + dur * 0.55);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(lp); o2.connect(lp); lp.connect(g);
+      g.connect(this.busDry); g.connect(this._convolver);
+      o.start(t); o2.start(t); o.stop(t + dur + 0.1); o2.stop(t + dur + 0.1);
+    });
   }
 
   // ---- bass line state ---------------------------------------------------

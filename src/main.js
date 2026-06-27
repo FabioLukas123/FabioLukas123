@@ -88,7 +88,7 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
 const bloom = new UnrealBloomPass(
-  new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.7, 0.62);
+  new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.75, 0.72);
 composer.addPass(bloom);
 
 // noir colour grade: teal shadows, amber highlights, vignette, grain,
@@ -125,7 +125,7 @@ const GradeShader = {
       float vig = smoothstep(0.9, 0.18, r2*uVignette);
       col *= mix(0.35, 1.0, vig);
       // faint moving grain
-      float g = hash(uv*vec2(1920.0,1080.0)+uTime)*0.06 - 0.03;
+      float g = hash(uv*vec2(1920.0,1080.0)+uTime)*0.038 - 0.019;
       col += g;
       // gentle filmic lift in the blacks so darkness has texture
       col = max(col, vec3(0.004,0.006,0.01));
@@ -241,7 +241,7 @@ function tick() {
   lantern.position.set(camera.position.x, camera.position.y + 6, camera.position.z);
 
   // bloom breathes a little with the music's intensity
-  bloom.strength = 0.7 + intensity * 0.5 + Math.sin(time * 0.6) * 0.05;
+  bloom.strength = 0.62 + intensity * 0.4 + Math.sin(time * 0.6) * 0.04;
   gradePass.uniforms.uTime.value = time;
 
   // keep the mirror following the camera down the avenue (cheap, big payoff)
