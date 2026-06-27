@@ -35,6 +35,96 @@ export class Life {
       color: 0x0a0b0f, roughness: 0.25, metalness: 0.7,
     });
     this._build();
+    this._elevated();
+  }
+
+  // a warm row-of-windows texture for the train cars
+  _trainTex() {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 32;
+    const g = c.getContext("2d");
+    g.fillStyle = "#0c0a07"; g.fillRect(0, 0, 256, 32);
+    for (let x = 6; x < 250; x += 20) {
+      const lit = Math.random() > 0.25;
+      g.fillStyle = lit ? "#ffd79a" : "#1a130a";
+      g.fillRect(x, 9, 13, 15);
+    }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
+  // ---- the elevated line crossing the mid-distance ---------------------
+  _elevated() {
+    const Z = -400, Y = 40, SPAN = 560;
+    const steel = new THREE.MeshStandardMaterial({
+      color: 0x0c0e14, roughness: 0.7, metalness: 0.6,
+    });
+    // the deck
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(SPAN, 2.4, 12), steel);
+    deck.position.set(0, Y, Z);
+    this.scene.add(deck);
+    // a low parapet truss along each side
+    for (const s of [-1, 1]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(SPAN, 2.6, 0.6), steel);
+      rail.position.set(0, Y + 2.4, Z + s * 5.6);
+      this.scene.add(rail);
+    }
+    // support pylons (skip the central avenue so it can pass beneath)
+    for (let x = -SPAN / 2 + 30; x <= SPAN / 2 - 30; x += 70) {
+      if (Math.abs(x) < 44) continue;
+      const pylon = new THREE.Mesh(new THREE.BoxGeometry(7, Y, 7), steel);
+      pylon.position.set(x, Y / 2, Z);
+      this.scene.add(pylon);
+      // a cross-brace arch
+      const brace = new THREE.Mesh(new THREE.BoxGeometry(7, 3, 16), steel);
+      brace.position.set(x, Y - 6, Z);
+      this.scene.add(brace);
+    }
+
+    // amber running-lights strung along both deck edges, so the elevated line
+    // reads as a lit structure at night even when no train is crossing.
+    const rl = [];
+    for (let x = -SPAN / 2; x <= SPAN / 2; x += 11) {
+      for (const s of [-1, 1]) { rl.push(x, Y + 4.2, Z + s * 6); }
+    }
+    const rlGeo = new THREE.BufferGeometry();
+    rlGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(rl), 3));
+    const runlights = new THREE.Points(rlGeo, new THREE.PointsMaterial({
+      color: 0xffc070, size: 2.4, sizeAttenuation: true, transparent: true,
+      opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    this.scene.add(runlights);
+
+    // the train: a head with a lamp and a string of lit cars
+    const tex = this._trainTex();
+    const train = new THREE.Group();
+    const carMat = new THREE.MeshStandardMaterial({
+      color: 0x14110b, emissive: 0xffd79a, emissiveMap: tex, map: tex,
+      emissiveIntensity: 1.6, roughness: 0.5, metalness: 0.3,
+    });
+    const cars = this.low ? 3 : 5;
+    const half = (cars - 1) / 2;
+    for (let i = 0; i < cars; i++) {
+      const car = new THREE.Mesh(new THREE.BoxGeometry(30, 7, 8), carMat);
+      // centred on the group origin (local z=0) so a 180° flip reverses cleanly
+      car.position.set((i - half) * 33, Y + 6.4, 0);
+      train.add(car);
+    }
+    // forward headlight at the +x nose (rotate the group to travel the other way)
+    const nose = half * 33 + 20;
+    const lamp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this._headTex, color: 0xfff4d8, transparent: true,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    lamp.scale.set(11, 11, 1);
+    lamp.position.set(nose, Y + 6.4, 0);
+    train.add(lamp);
+    train.position.set(-(SPAN / 2 + 160), 0, Z);
+    this.scene.add(train);
+    this.train = train;
+    this.trainState = {
+      Z, Y, span: SPAN, len: cars * 33,
+      x: -(SPAN / 2 + 160), speed: 95, dir: 1, wait: 3,
+    };
   }
 
   _makeCar(headColor) {
@@ -103,6 +193,22 @@ export class Life {
   }
 
   update(dt, camera) {
+    // the elevated train: glides across, then waits offstage and returns
+    const ts = this.trainState;
+    if (ts) {
+      if (ts.wait > 0) {
+        ts.wait -= dt;
+        this.train.visible = false;
+      } else {
+        this.train.visible = true;
+        ts.x += ts.speed * ts.dir * dt;
+        this.train.position.x = ts.x;
+        const off = ts.span / 2 + ts.len + 120;
+        if (ts.dir > 0 && ts.x > off) { ts.dir = -1; ts.wait = 4 + Math.random() * 6; this.train.rotation.y = Math.PI; ts.x = off; }
+        else if (ts.dir < 0 && ts.x < -off) { ts.dir = 1; ts.wait = 4 + Math.random() * 6; this.train.rotation.y = 0; ts.x = -off; }
+      }
+    }
+
     const cz = camera.position.z, cx = camera.position.x;
     for (const car of this.cars) {
       const d = car.userData;

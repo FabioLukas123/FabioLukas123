@@ -259,4 +259,4 @@ function tick() {
 tick();
 
 // expose for debugging in the console
-window.__city = { scene, camera, city, band, director, renderer, composer };
+window.__city = { scene, camera, city, band, director, renderer, composer, life, atmosphere };
