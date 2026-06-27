@@ -31,29 +31,45 @@ its own copy of Three.js, so the city needs **no network at runtime**.
 | `ENTER THE CITY` | begin (also unlocks audio) |
 | `C` | hand the wheel back and forth — *let the city drive* (cinematic dolly) ↔ walk it yourself |
 | `W A S D` + mouse | drift and look (manual mode) |
+| drag / swipe | glance around the moving city (works on touch) |
 | `SHIFT` | hurry — the band picks up with you |
 | `M` | mute the band |
 
-By default the city drives: a slow, choreographed dolly travels the avenue
-toward the **Herald**, the impossible central tower. Press `C` to take control.
+Entering plays a choreographed establishing shot — the city spread out beneath
+the stars — then settles into a slow dolly down the avenue toward the
+**Herald**, the impossible central tower. By default the city drives; press `C`
+to take control, or just drag to glance around without stopping.
+
+Wander down to **THE BLUE NOTE**, the jazz club off the avenue — the band gets
+louder and more present the closer you stand.
 
 ## What's inside
 
 - **`src/city.js`** — procedural Art Deco skyline. Towers are built as stepped
-  ziggurat setbacks crowned with brass finials and spires; ten thousand windows
-  are baked into emissive textures so they cost almost nothing. A red aviation
-  beacon pulses at every spire.
-- **`src/atmosphere.js`** — the air: layered fog, drifting haze, slanting rain,
-  and great searchlights raking the sky.
-- **`src/camera.js`** — the direction: a hand-authored spline of "stations" for
-  the cinematic dolly, plus a weighty manual fly-cam.
+  ziggurat setbacks crowned with brass finials and spires; thousands of windows
+  are baked into emissive textures (warm tungsten, cold fluorescent, green
+  office light) so they cost almost nothing. Spired towers carry a pulsing red
+  aviation beacon; the rest get working rooftops — water towers, vents, antenna
+  masts. Neon blade signs line the avenue, and **THE BLUE NOTE** jazz club sits
+  in a carved gap in the canyon wall.
+- **`src/atmosphere.js`** — the air and the heavens: a gradient sky dome, a low
+  moon, a breathing star field, layered fog, drifting haze, slanting rain, and
+  great searchlights raking the sky.
+- **`src/life.js`** — the city is not empty: headlamp/tail-light traffic runs
+  the avenue and cross-streets, and an elevated train periodically glides across
+  a lit viaduct in the mid-distance.
+- **`src/camera.js`** — the direction: a one-time establishing shot, a
+  hand-authored spline of "stations" for the cinematic dolly, a weighty manual
+  fly-cam, and drag-to-peek for touch.
 - **`src/audio/jazz.js`** — **The Band.** A generative noir-jazz combo (walking
-  upright bass, brushed swing drums, comping piano, muted trumpet) playing
-  through wandering ii–V–i cells so the harmony never obviously repeats. Music
-  behaves as another architectural layer; intensity rises as you climb and hurry.
+  upright bass, brushed swing drums, comping piano, muted trumpet and a soft
+  pad) playing through wandering ii–V–i cells so the harmony never obviously
+  repeats. Music behaves as another architectural layer; intensity rises as you
+  climb and hurry, and the mix swells as you approach the club. A limiter keeps
+  busy bars clean.
 - **`src/main.js`** — renderer, sculpting light, a real wet-street reflection,
-  and a noir post-processing stack (bloom, teal/amber split-tone, vignette,
-  film grain, edge chromatic aberration).
+  quality tiers for mobile, and a noir post-processing stack (bloom, teal/amber
+  split-tone, vignette, film grain, edge chromatic aberration).
 
 ## Build
 
