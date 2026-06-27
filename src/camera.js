@@ -41,7 +41,13 @@ export class CameraDirector {
     this._look = new THREE.Vector3();
     this._curLook = new THREE.Vector3(0, 60, -200);
 
+    // drag-to-peek: glance around the moving city (touch + un-locked mouse)
+    this.peekYaw = 0; this.peekPitch = 0;
+    this._peekTargetYaw = 0; this._peekTargetPitch = 0;
+    this._dragging = false; this._lastX = 0; this._lastY = 0;
+
     this._bindManual();
+    this._bindDrag();
     this.stationName = STATIONS[0].name;
   }
 
@@ -61,6 +67,30 @@ export class CameraDirector {
       this.pitch -= e.movementY * 0.0022;
       this.pitch = Math.max(-0.9, Math.min(0.6, this.pitch));
     });
+  }
+
+  // Pointer drag (no lock): peek in cinematic, free-look in manual. Works
+  // for touch and mouse alike, so the city is explorable on a phone.
+  _bindDrag() {
+    const down = (x, y) => { this._dragging = true; this._lastX = x; this._lastY = y; };
+    const move = (x, y) => {
+      if (!this._dragging) return;
+      const dx = x - this._lastX, dy = y - this._lastY;
+      this._lastX = x; this._lastY = y;
+      if (this.mode === "manual") {
+        if (document.pointerLockElement === this.dom) return; // mouse-look owns it
+        this.yaw -= dx * 0.004;
+        this.pitch = Math.max(-0.9, Math.min(0.6, this.pitch - dy * 0.004));
+      } else {
+        this._peekTargetYaw = Math.max(-0.6, Math.min(0.6, this._peekTargetYaw + dx * 0.0045));
+        this._peekTargetPitch = Math.max(-0.35, Math.min(0.35, this._peekTargetPitch + dy * 0.0045));
+      }
+    };
+    const up = () => { this._dragging = false; };
+    this.dom.addEventListener("pointerdown", (e) => down(e.clientX, e.clientY));
+    addEventListener("pointermove", (e) => move(e.clientX, e.clientY));
+    addEventListener("pointerup", up);
+    addEventListener("pointercancel", up);
   }
 
   toggleMode() {
@@ -113,6 +143,12 @@ export class CameraDirector {
       this.cam.position.lerp(p, 1 - Math.pow(0.001, dt));
       this._curLook.lerp(look, 1 - Math.pow(0.01, dt));
       this.cam.lookAt(this._curLook);
+      // glance offset springs back to the choreographed framing when released
+      if (!this._dragging) { this._peekTargetYaw *= 0.94; this._peekTargetPitch *= 0.94; }
+      this.peekYaw += (this._peekTargetYaw - this.peekYaw) * 0.12;
+      this.peekPitch += (this._peekTargetPitch - this.peekPitch) * 0.12;
+      this.cam.rotateY(this.peekYaw);
+      this.cam.rotateX(this.peekPitch);
       motion = this.hurry ? 0.7 : 0.4;
     } else {
       // manual fly
