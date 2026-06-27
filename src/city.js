@@ -96,9 +96,66 @@ export class City {
     this._avenueWalls();   // the canyon that leads the eye to the Herald
     this._skyline();
     this._herald();        // the one impossible central tower
+    this._observatory();   // a lit deck near its summit you can rise into
     this._signs();         // neon blade signs glowing in the dark
     this._club();          // the hidden jazz club the score belongs to
     return this;
+  }
+
+  // ---- the observatory: a warm interior near the Herald's summit -------
+  _observatory() {
+    const X = 0, Z = -1078, Y = 356;        // cantilevered toward the avenue
+    const W = 78, D = 36, H = 22;
+    const obs = new THREE.Group();
+    const warm = new THREE.MeshStandardMaterial({
+      color: 0x1a140c, emissive: 0xffb060, emissiveIntensity: 0.5,
+      roughness: 0.8, metalness: 0.1,
+    });
+    // floor (warm, lit interior) and roof
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 2, D), warm);
+    floor.position.set(X, Y, Z);
+    obs.add(floor);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 2.4, D + 4), this.brass);
+    roof.position.set(X, Y + H, Z);
+    obs.add(roof);
+    // back wall against the tower, glowing from within
+    const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, 1.5),
+      new THREE.MeshStandardMaterial({
+        color: 0x140f08, emissive: 0xffc070, emissiveIntensity: 0.7, roughness: 0.7,
+      }));
+    back.position.set(X, Y + H / 2, Z - D / 2);
+    obs.add(back);
+    // a colonnade of fluted Deco columns along the open front
+    for (let i = -3; i <= 3; i++) {
+      const col = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.3, 1.5, H, 8), this.brass);
+      col.position.set(X + i * 11, Y + H / 2, Z + D / 2 - 1.5);
+      obs.add(col);
+    }
+    // a low parapet railing along the lookout edge
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(W, 2.4, 1), this.brass);
+    rail.position.set(X, Y + 2.4, Z + D / 2);
+    obs.add(rail);
+    // a brass telescope pointed out over the city
+    const scope = new THREE.Group();
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.1, 7, 10), this.brass);
+    tube.rotation.x = Math.PI / 2.6;
+    tube.position.set(X + 16, Y + 5, Z + D / 2 - 4);
+    scope.add(tube);
+    const tri = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5, 3), this.darkStone);
+    tri.position.set(X + 16, Y + 2.5, Z + D / 2 - 4);
+    scope.add(tri);
+    obs.add(scope);
+    // warm spill so the deck glows as a beacon up in the dark tower
+    const spill = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this._radialTex(0xffb765), color: 0xffb765, transparent: true,
+      opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    spill.scale.set(120, 70, 1);
+    spill.position.set(X, Y + H / 2, Z + 2);
+    obs.add(spill);
+    this.group.add(obs);
+    this.observatory = obs;
   }
 
   // ---- neon blade signs ------------------------------------------------

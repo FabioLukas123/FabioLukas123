@@ -20,7 +20,11 @@ const STATIONS = [
   { p: [-12, 14, -30], look: [0, 200, -700], name: "FOUNTAIN SQUARE" },
   { p: [10, 22, -370], look: [0, 300, -1140], name: "THE HIGH LINE" },
   { p: [-6, 28, -680], look: [0, 360, -1140], name: "HERALD APPROACH" },
-  { p: [0, 18, -940], look: [0, 420, -1140], name: "UNDER THE HERALD" },
+  { p: [0, 18, -940], look: [0, 300, -1110], name: "UNDER THE HERALD" },
+  // the ascent up the Herald's lit ribs into the observatory
+  { p: [0, 130, -1010], look: [0, 320, -1140], name: "THE ASCENT" },
+  { p: [0, 280, -1052], look: [0, 400, -1140], name: "THE LONG CLIMB" },
+  { p: [0, 372, -1066], look: [0, 150, -250], name: "THE OBSERVATORY" },
 ];
 
 export class CameraDirector {
@@ -29,7 +33,8 @@ export class CameraDirector {
     this.dom = dom;
     this.mode = "cinematic";
     this.t = 0;            // 0..1 progress along the rail
-    this.speed = 0.012;    // base rail speed
+    this.railDir = 1;      // ping-pong direction (no snap-back at the ends)
+    this.speed = 0.009;    // base rail speed
     this.hurry = false;
 
     // the establishing shot played once on entry
@@ -166,8 +171,10 @@ export class CameraDirector {
       return 0.12 + k * 0.3;
     }
     if (this.mode === "cinematic") {
-      this.t += this.speed * dt * (this.hurry ? 2.2 : 1);
-      if (this.t >= 1) this.t = 0; // loop the journey seamlessly
+      this.t += this.speed * dt * this.railDir * (this.hurry ? 2.2 : 1);
+      // ping-pong so the endless journey never snaps back to the start
+      if (this.t >= 1) { this.t = 1; this.railDir = -1; }
+      else if (this.t <= 0) { this.t = 0; this.railDir = 1; }
       const { p, look } = this._sampleRail(this.t);
       // handheld sway so it never feels like a slider (calmed for reduced-motion)
       const sway = this.calm ? 0.25 : 1.0;
