@@ -154,14 +154,18 @@ function fmtClock(t) {
 }
 
 let lastPlace = "";
+let nearClub = false;
 function updateHud(time) {
-  if (director.stationName !== lastPlace) {
-    lastPlace = director.stationName;
+  const place = nearClub ? "THE BLUE NOTE" : director.stationName;
+  if (place !== lastPlace) {
+    lastPlace = place;
     placeEl.style.opacity = "0";
-    setTimeout(() => { placeEl.textContent = director.stationName; placeEl.style.opacity = "1"; }, 600);
+    setTimeout(() => { placeEl.textContent = place; placeEl.style.opacity = "1"; }, 600);
   }
   clockEl.textContent = fmtClock(time);
-  trackEl.textContent = band.muted ? "SILENCE" : `THE BAND · ${band.currentChordName}`;
+  trackEl.textContent = band.muted
+    ? "SILENCE"
+    : (nearClub ? `INSIDE · ${band.currentChordName}` : `THE BAND · ${band.currentChordName}`);
 }
 
 // ---- the overture gate -------------------------------------------------
@@ -219,7 +223,16 @@ function tick() {
   const time = clock.elapsedTime;
 
   const intensity = director.update(dt, time);
-  band.setIntensity(intensity);
+
+  // proximity to the hidden jazz club: the closer you stand, the louder and
+  // more present the band — music as a place you can walk toward.
+  const dClub = camera.position.distanceTo(city.clubPos);
+  const prox = Math.max(0, Math.min(1, 1 - (dClub - 30) / 220));
+  band.setProximity(prox);
+  band.setIntensity(Math.max(intensity, prox * 0.85));
+  if (city.clubGlow) city.clubGlow.material.opacity = 0.55 + 0.3 * Math.sin(time * 2) + prox * 0.4;
+  nearClub = prox > 0.45;
+
   city.update(time);
   atmosphere.update(dt, time, camera);
   life.update(dt, camera);

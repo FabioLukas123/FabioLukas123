@@ -61,6 +61,9 @@ export class JazzEngine {
     this._timer = null;
     this._convolver = null;
     this.currentChordName = "—";
+    this.baseGain = 0.9;
+    this._prox = 0;
+    this._proxApplied = -1;
   }
 
   async start(){
@@ -99,12 +102,28 @@ export class JazzEngine {
 
   setIntensity(v){ this._intensityTarget = Math.max(0, Math.min(1, v)); }
 
+  // 0 = out in the city, 1 = standing in the doorway of the club.
+  // The band gets louder and drier (more present, less hall) as you near it.
+  setProximity(p){
+    p = Math.max(0, Math.min(1, p));
+    this._prox = p;
+    if (!this.started || this.muted) return;
+    if (Math.abs(p - this._proxApplied) < 0.02) return;
+    this._proxApplied = p;
+    const t = this.ctx.currentTime, tc = 0.5;
+    this.master.gain.setTargetAtTime(this.baseGain * (1 + 0.3 * p), t, tc);
+    this.busWet.gain.setTargetAtTime(0.34 * (1 - 0.55 * p), t, tc);
+    this.busDry.gain.setTargetAtTime(0.85 + 0.35 * p, t, tc);
+  }
+
   toggleMute(){
     this.muted = !this.muted;
     if (!this.ctx) return this.muted;
     const t = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(t);
-    this.master.gain.setTargetAtTime(this.muted ? 0.0001 : 0.9, t, 0.4);
+    const target = this.baseGain * (1 + 0.3 * this._prox);
+    this.master.gain.setTargetAtTime(this.muted ? 0.0001 : target, t, 0.4);
+    this._proxApplied = -1; // re-apply proximity shaping after unmute
     return this.muted;
   }
 

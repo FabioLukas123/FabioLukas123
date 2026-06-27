@@ -12,6 +12,9 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 const chance = (p) => Math.random() < p;
 
+// the jazz club's footprint on the avenue (a gap is carved here)
+const CLUB = { side: -1, x: -54, z: 150 };
+
 // A deterministic-ish window texture: lit amber grid on dark stone, with a
 // scatter of dark (unlit) windows so the building reads as inhabited.
 function makeWindowTexture(cols, rows, warmth = 1) {
@@ -93,7 +96,128 @@ export class City {
     this._avenueWalls();   // the canyon that leads the eye to the Herald
     this._skyline();
     this._herald();        // the one impossible central tower
+    this._signs();         // neon blade signs glowing in the dark
+    this._club();          // the hidden jazz club the score belongs to
     return this;
+  }
+
+  // ---- neon blade signs ------------------------------------------------
+  // Vertical blade by default (letters stacked); horizontal for marquees.
+  _neonTex(word, hex, horizontal = false) {
+    const col = new THREE.Color(hex);
+    const cell = 64, pad = 18;
+    const c = document.createElement("canvas");
+    const g = () => c.getContext("2d");
+    if (horizontal) {
+      c.height = cell + pad * 2;
+      c.width = cell * 0.62 * word.length + pad * 2;
+    } else {
+      c.width = cell;
+      c.height = cell * word.length + pad * 2;
+    }
+    const ctx = g();
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.font = `bold ${cell - 14}px "Futura","Century Gothic",sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const rgb = `${(col.r * 255) | 0},${(col.g * 255) | 0},${(col.b * 255) | 0}`;
+    for (let i = 0; i < word.length; i++) {
+      const x = horizontal ? pad + cell * 0.62 * i + cell * 0.31 : cell / 2;
+      const y = horizontal ? c.height / 2 : pad + cell * i + cell / 2;
+      ctx.shadowColor = `rgba(${rgb},1)`; ctx.shadowBlur = 26;
+      ctx.fillStyle = `rgba(${rgb},1)`;
+      ctx.fillText(word[i], x, y);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.fillText(word[i], x, y);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return { tex: t, ratio: c.height / c.width };
+  }
+
+  makeSign(word, x, z, hex, opts = {}) {
+    const { tex, ratio } = this._neonTex(word, hex, opts.horizontal);
+    const w = opts.w ?? 6;
+    const h = w * ratio;
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    const ry = opts.ry ?? 0;
+    sign.position.set(x, opts.y ?? 40, z);
+    sign.rotation.y = ry;
+    // a dark backing board, set just behind the sign along its normal, so the
+    // neon reads as mounted hardware rather than floating light.
+    const board = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 1.5, h * 1.08),
+      new THREE.MeshStandardMaterial({ color: 0x07080c, roughness: 0.9 }));
+    const nx = Math.sin(ry), nz = Math.cos(ry);
+    board.position.set(x - nx * 0.3, sign.position.y, z - nz * 0.3);
+    board.rotation.y = ry;
+    this.group.add(board);
+    this.group.add(sign);
+    return sign;
+  }
+
+  _signs() {
+    // a scatter of vertical neon signs facing the avenue, mostly amber with
+    // the odd teal/red to break the monotony — pure noir storefront energy.
+    const words = [
+      ["HOTEL", 0xffb14a], ["JAZZ", 0x46c8d8], ["THEATRE", 0xffcf6a],
+      ["BAR", 0xff4a4a], ["LOANS", 0xffb14a], ["CAFE", 0x46c8d8],
+      ["ROOMS", 0xffb14a], ["DANCE", 0xff7a4a], ["NEWS", 0xffcf6a],
+    ];
+    let wi = 0;
+    const count = this.low ? 5 : words.length;
+    for (let i = 0; i < count; i++) {
+      const w = words[wi++ % words.length];
+      const side = i % 2 === 0 ? -1 : 1;
+      const z = 600 - i * rand(120, 200);
+      const x = side * rand(46, 60);
+      this.makeSign(w[0], x, z, w[1], {
+        y: rand(26, 64), w: rand(5, 8), ry: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+      });
+    }
+  }
+
+  // ---- the hidden jazz club --------------------------------------------
+  _club() {
+    // A small, low marquee at street level. The generative score "lives"
+    // here — the band gets louder and more present as you approach (handled
+    // in main.js via clubPos). This is music as architecture.
+    const x = CLUB.x, z = CLUB.z;
+    this.clubPos = new THREE.Vector3(x + 8, 4, z);
+    // a modest Deco facade behind the marquee — the club building itself
+    const facade = this.makeTower(x - 16, z, { w: 40, d: 46, h: 54 });
+    facade.userData.isClub = true;
+    // marquee canopy jutting over the sidewalk toward the avenue
+    const canopy = new THREE.Mesh(
+      new THREE.BoxGeometry(20, 1.4, 11), this.brass);
+    canopy.position.set(x + 8, 9, z);
+    this.group.add(canopy);
+    // underside glow of the marquee (warm spill on the doorway)
+    const spill = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this._radialTex(0xffb765), color: 0xffb765, transparent: true,
+      opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    spill.scale.set(24, 24, 1);
+    spill.position.set(x + 12, 3.5, z);
+    this.group.add(spill);
+    // The marquee faces the avenue centre (+x). The blade is perpendicular so
+    // it's legible coming down the avenue; the name runs along the canopy.
+    this.makeSign("THE BLUE NOTE", x + 13, z, 0x6ec6ff,
+      { y: 12.4, w: 16, ry: Math.PI / 2, horizontal: true });
+    this.makeSign("JAZZ", x + 16, z + 7, 0xff4a7a,
+      { y: 24, w: 6, ry: 0 });
+    // warm doorway, set into the facade, facing the avenue
+    const door = new THREE.Mesh(
+      new THREE.PlaneGeometry(6, 9),
+      new THREE.MeshBasicMaterial({ color: 0xffcaa0 }));
+    door.position.set(x + 4.1, 4.5, z);
+    door.rotation.y = Math.PI / 2;
+    this.group.add(door);
+    this.clubGlow = spill;
   }
 
   // ---- the wet street --------------------------------------------------
@@ -283,6 +407,8 @@ export class City {
     const step = this.low ? [74, 100] : [46, 66];
     for (let z = 760; z > -1040; z -= rand(step[0], step[1])) {
       for (const side of [-1, 1]) {
+        // leave a gap in the curb for the jazz club storefront
+        if (side === CLUB.side && Math.abs(z - CLUB.z) < 60) continue;
         const x = side * rand(52, 78);
         const depthBias = 1 - Math.min(1, Math.abs(z + 200) / 1100);
         const w = rand(24, 44), d = rand(24, 44);
