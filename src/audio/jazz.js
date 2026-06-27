@@ -84,11 +84,20 @@ export class JazzEngine {
     const shaper = this.ctx.createWaveShaper();
     shaper.curve = this._softCurve();
     shaper.oversample = "4x";
+    // a true limiter after the shaper so a busy bar (pad + comp + melody +
+    // bass + drums all at once) never clips the output.
+    const limiter = this.ctx.createDynamicsCompressor();
+    limiter.threshold.value = -8;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.004;
+    limiter.release.value = 0.18;
 
     this.busDry = dry; this.busWet = wet;
     dry.connect(shaper); this._convolver.connect(wet); wet.connect(shaper);
     shaper.connect(this.master);
-    this.master.connect(this.ctx.destination);
+    this.master.connect(limiter);
+    limiter.connect(this.ctx.destination);
 
     // fade the band in like a door opening on a club
     this.master.gain.setValueAtTime(0.0001, this.ctx.currentTime);

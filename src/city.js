@@ -352,19 +352,22 @@ export class City {
       baseY += ch;
       cw *= 0.66;
     }
-    if (chance(0.7)) {
+    if (chance(0.6)) {
+      // the Chrysler gesture: a spire with a red aviation beacon
       const spireH = rand(10, 40);
       const spire = new THREE.Mesh(
         new THREE.ConeGeometry(Math.max(0.8, cw * 0.4), spireH, 6), this.brass);
       spire.position.y = baseY + spireH / 2;
       crown.add(spire);
       baseY += spireH;
-      // a red aviation beacon at the very tip (glow comes from bloom)
       const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.1, 10, 10),
         this.beaconMat.clone());
       beacon.position.y = baseY;
       crown.add(beacon);
       this.beacons.push({ mesh: beacon, phase: Math.random() * 6.28 });
+    } else {
+      // a working rooftop: water tower, vents, an antenna mast
+      this._rooftop(crown, baseY, Math.max(curW, 10));
     }
     tower.add(crown);
 
@@ -372,6 +375,55 @@ export class City {
     tower.userData.height = baseY;
     this.group.add(tower);
     return tower;
+  }
+
+  // ---- working rooftop clutter: water tower, vents, antenna ------------
+  _rooftop(crown, baseY, top) {
+    const dark = this.darkStone;
+    // a classic timber water tower on splayed legs
+    if (chance(0.7)) {
+      const wt = new THREE.Group();
+      const r = Math.min(4.5, top * 0.16) + 1.2;
+      const legH = r * 1.4;
+      const tank = new THREE.Mesh(
+        new THREE.CylinderGeometry(r, r, r * 1.7, 10), this.brass);
+      tank.position.y = baseY + legH + r * 0.85;
+      wt.add(tank);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(r * 1.05, r * 0.8, 10), dark);
+      cap.position.y = baseY + legH + r * 1.7 + r * 0.4;
+      wt.add(cap);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.4, legH, 0.4), dark);
+        leg.position.set(Math.cos(a) * r * 0.7, baseY + legH / 2, Math.sin(a) * r * 0.7);
+        wt.add(leg);
+      }
+      const ox = rand(-top * 0.18, top * 0.18), oz = rand(-top * 0.18, top * 0.18);
+      wt.position.set(ox, 0, oz);
+      crown.add(wt);
+    }
+    // a couple of rooftop vents / housings
+    for (let i = 0; i < randInt(1, 3); i++) {
+      const b = new THREE.Mesh(
+        new THREE.BoxGeometry(rand(2, 5), rand(2, 4), rand(2, 5)), dark);
+      b.position.set(rand(-top * 0.3, top * 0.3), baseY + 1.5, rand(-top * 0.3, top * 0.3));
+      crown.add(b);
+    }
+    // a thin antenna mast, sometimes with a red beacon
+    if (chance(0.6)) {
+      const mh = rand(8, 22);
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, mh, 6), dark);
+      const mx = rand(-top * 0.2, top * 0.2), mz = rand(-top * 0.2, top * 0.2);
+      mast.position.set(mx, baseY + mh / 2, mz);
+      crown.add(mast);
+      if (chance(0.7)) {
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 8),
+          this.beaconMat.clone());
+        beacon.position.set(mx, baseY + mh, mz);
+        crown.add(beacon);
+        this.beacons.push({ mesh: beacon, phase: Math.random() * 6.28 });
+      }
+    }
   }
 
   // ---- fill the world with towers --------------------------------------
