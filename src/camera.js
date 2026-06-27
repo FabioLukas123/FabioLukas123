@@ -32,6 +32,11 @@ export class CameraDirector {
     this.speed = 0.012;    // base rail speed
     this.hurry = false;
 
+    // the establishing shot played once on entry
+    this.introT = 0;
+    this.introDur = 9.0;
+    this._introStart = { p: [0, 2.4, 985], look: [-30, 240, -120] };
+
     // manual state
     this.pos = new THREE.Vector3(0, 6, 820);
     this.yaw = Math.PI;     // facing -z down the avenue
@@ -93,7 +98,15 @@ export class CameraDirector {
     addEventListener("pointercancel", up);
   }
 
+  // play the one-time establishing shot, then hand off to the rail
+  startIntro() {
+    this.mode = "intro";
+    this.introT = 0;
+    this.stationName = "THE CITY";
+  }
+
   toggleMode() {
+    if (this.mode === "intro") { this.mode = "cinematic"; this.t = 0; }
     if (this.mode === "cinematic") {
       this.mode = "manual";
       // seed manual state from current camera so there's no jump
@@ -132,6 +145,26 @@ export class CameraDirector {
   // returns intensity 0..1 for the music (motion + height)
   update(dt, time) {
     let motion = 0;
+    if (this.mode === "intro") {
+      this.introT += dt / this.introDur;
+      const k = this._smooth(Math.min(1, this.introT));
+      const s0 = STATIONS[0];
+      const a = this._introStart;
+      const p = new THREE.Vector3(
+        a.p[0] + (s0.p[0] - a.p[0]) * k,
+        a.p[1] + (s0.p[1] - a.p[1]) * k,
+        a.p[2] + (s0.p[2] - a.p[2]) * k);
+      this._curLook.set(
+        a.look[0] + (s0.look[0] - a.look[0]) * k,
+        a.look[1] + (s0.look[1] - a.look[1]) * k,
+        a.look[2] + (s0.look[2] - a.look[2]) * k);
+      this.cam.position.copy(p);
+      this.cam.lookAt(this._curLook);
+      this.stationName = "THE CITY";
+      if (this.introT >= 1) { this.mode = "cinematic"; this.t = 0; }
+      // the score swells in over the establishing shot
+      return 0.12 + k * 0.3;
+    }
     if (this.mode === "cinematic") {
       this.t += this.speed * dt * (this.hurry ? 2.2 : 1);
       if (this.t >= 1) this.t = 0; // loop the journey seamlessly

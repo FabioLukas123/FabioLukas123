@@ -195,6 +195,7 @@ function enter() {
   gate.classList.add("is-hidden");
   hud.classList.add("is-live");
   hud.setAttribute("aria-hidden", "false");
+  director.startIntro();   // play the establishing shot before the rail
   band.start().catch(() => { /* audio may be blocked; the city stays silent */ });
 }
 enterBtn.addEventListener("click", enter);
