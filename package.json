@@ -4,10 +4,12 @@
   "description": "THE CITY — an explorable Dark Deco metropolis built with WebGL and a generative noir-jazz score.",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/city.bundle.js",
-    "watch": "esbuild src/main.js --bundle --format=esm --sourcemap --outfile=dist/city.bundle.js --watch",
+    "start": "node scripts/serve.js",
     "serve": "node scripts/serve.js",
-    "dev": "npm run build && npm run serve"
+    "dev": "node scripts/serve.js",
+    "build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/city.bundle.js",
+    "rebuild": "npm install && npm run build",
+    "watch": "esbuild src/main.js --bundle --format=esm --sourcemap --outfile=dist/city.bundle.js --watch"
   },
   "keywords": ["webgl", "three.js", "art-deco", "noir", "generative-music", "interactive"],
   "author": "",

@@ -14,15 +14,25 @@ The score is **generated live** — it never loops, and it breathes with how you
 
 ## Enter
 
-Open `index.html` from any static host, or run it locally:
+The experience is fully self-contained — the built bundle in `dist/` already
+carries its own copy of Three.js, so **you don't need to install or build
+anything to run it**. Just serve the folder:
 
 ```bash
-npm install        # only needed to rebuild
-npm run dev        # builds + serves at http://localhost:5173
+npm start          # serves at http://localhost:5173  (needs only Node)
 ```
 
-The experience is fully self-contained — the built bundle in `dist/` carries
-its own copy of Three.js, so the city needs **no network at runtime**.
+Then open **http://localhost:5173**. (`npm run serve` and `npm run dev` do the
+same thing.) Any other static file server works too — the only requirement is
+to serve over `http://`, not open `index.html` via `file://`, because it uses
+ES modules.
+
+**Only if you change the source** in `src/` do you need to rebuild, which is the
+only step that needs the dev dependencies:
+
+```bash
+npm run rebuild    # npm install + esbuild  →  dist/city.bundle.js
+```
 
 ## How to move
 
