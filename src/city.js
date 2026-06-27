@@ -12,8 +12,9 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 const chance = (p) => Math.random() < p;
 
-// the jazz club's footprint on the avenue (a gap is carved here)
+// storefronts that carve a gap in the avenue wall (jazz club, grand theater)
 const CLUB = { side: -1, x: -54, z: 150 };
+const THEATER = { side: 1, x: 58, z: -70 };
 
 // A deterministic-ish window texture: lit amber grid on dark stone, with a
 // scatter of dark (unlit) windows so the building reads as inhabited.
@@ -99,7 +100,55 @@ export class City {
     this._observatory();   // a lit deck near its summit you can rise into
     this._signs();         // neon blade signs glowing in the dark
     this._club();          // the hidden jazz club the score belongs to
+    this._theater();       // a grand Deco picture palace on the avenue
     return this;
+  }
+
+  // ---- the grand theater: a Deco picture palace ------------------------
+  _theater() {
+    const x = THEATER.x, z = THEATER.z;
+    // a broad, ornate facade (shorter and wider than its neighbours)
+    const facade = this.makeTower(x + 18, z, { w: 54, d: 60, h: 72 });
+    facade.userData.isTheater = true;
+    // a deep marquee canopy jutting over the sidewalk toward the avenue
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(13, 2.2, 26), this.brass);
+    canopy.position.set(x - 6, 11, z);
+    this.group.add(canopy);
+    // chasing bulbs around the marquee edge (a ring of warm points)
+    const bulbs = [];
+    for (let i = -12; i <= 12; i++) {
+      const t = i / 12;
+      bulbs.push(x - 12, 9.9, z + t * 13);
+      bulbs.push(x - 12, 12.1, z + t * 13);
+    }
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(bulbs), 3));
+    const marqueeBulbs = new THREE.Points(bg, new THREE.PointsMaterial({
+      color: 0xffdca0, size: 1.8, sizeAttenuation: true, transparent: true,
+      opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    this.group.add(marqueeBulbs);
+    this.theaterBulbs = marqueeBulbs;
+    // warm glow under the marquee
+    const spill = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this._radialTex(0xffc070), color: 0xffc070, transparent: true,
+      opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    spill.scale.set(30, 18, 1);
+    spill.position.set(x - 8, 5, z);
+    this.group.add(spill);
+    // the name across the marquee (faces the avenue) and a tall vertical blade
+    this.makeSign("THE ORPHEUM", x - 11.5, z, 0xffd27a,
+      { y: 15.5, w: 22, ry: -Math.PI / 2, horizontal: true });
+    this.makeSign("ORPHEUM", x + 2, z + 16, 0xff5aa0, { y: 40, w: 7, ry: 0 });
+    // a row of glowing arched entrance doors
+    for (let i = -1; i <= 1; i++) {
+      const door = new THREE.Mesh(new THREE.PlaneGeometry(5, 9),
+        new THREE.MeshBasicMaterial({ color: 0xffcaa0 }));
+      door.position.set(x - 9.6, 5, z + i * 7);
+      door.rotation.y = -Math.PI / 2;
+      this.group.add(door);
+    }
   }
 
   // ---- the observatory: a warm interior near the Herald's summit -------
@@ -520,8 +569,9 @@ export class City {
     const step = this.low ? [74, 100] : [46, 66];
     for (let z = 760; z > -1040; z -= rand(step[0], step[1])) {
       for (const side of [-1, 1]) {
-        // leave a gap in the curb for the jazz club storefront
+        // leave gaps in the curb for the jazz club and the theater
         if (side === CLUB.side && Math.abs(z - CLUB.z) < 60) continue;
+        if (side === THEATER.side && Math.abs(z - THEATER.z) < 70) continue;
         const x = side * rand(52, 78);
         const depthBias = 1 - Math.min(1, Math.abs(z + 200) / 1100);
         const w = rand(24, 44), d = rand(24, 44);
@@ -568,6 +618,9 @@ export class City {
       const v = p * p;
       b.mesh.material.color.setRGB(0.35 + v * 0.95, 0.04 + 0.18 * v, 0.03 * v);
     }
+    // the theater marquee bulbs shimmer
+    if (this.theaterBulbs) this.theaterBulbs.material.opacity = 0.7 + 0.3 * Math.sin(t * 6);
+
     // street lamps flicker faintly, like old sodium gas — purely emissive
     for (const l of this.lamps) {
       const f = 0.9 + Math.sin(t * 9 + l.phase) * 0.05 + Math.random() * 0.02;

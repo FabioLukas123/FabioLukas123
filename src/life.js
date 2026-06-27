@@ -94,6 +94,41 @@ export class Life {
     }));
     this.scene.add(runlights);
 
+    // a station headhouse on the curb, with a lit platform up at the deck
+    const station = new THREE.Group();
+    const sx = 48;                              // on the right curb
+    const house = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 18),
+      new THREE.MeshStandardMaterial({
+        color: 0x16120b, emissive: 0xffc070, emissiveIntensity: 0.45, roughness: 0.8,
+      }));
+    house.position.set(sx, 8, Z + 8);
+    station.add(house);
+    // a stair mass climbing toward the deck
+    const stair = new THREE.Mesh(new THREE.BoxGeometry(7, Y, 10), steel);
+    stair.position.set(sx - 8, Y / 2, Z + 4);
+    stair.rotation.z = 0.06;
+    station.add(stair);
+    // a lit platform canopy at deck level
+    const plat = new THREE.Mesh(new THREE.BoxGeometry(40, 1, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x16120b, emissive: 0xffc070, emissiveIntensity: 0.5, roughness: 0.8,
+      }));
+    plat.position.set(sx - 6, Y + 4.5, Z);
+    station.add(plat);
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(40, 0.8, 18), steel);
+    canopy.position.set(sx - 6, Y + 11, Z);
+    station.add(canopy);
+    this.scene.add(station);
+    // a warm glow at the entrance and a TRAINS blade are added by City signage;
+    // here we just spill light at the doorway
+    const spill = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this._headTex, color: 0xffc070, transparent: true,
+      opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    spill.scale.set(20, 20, 1);
+    spill.position.set(sx, 4, Z + 18);
+    station.add(spill);
+
     // the train: a head with a lamp and a string of lit cars
     const tex = this._trainTex();
     const train = new THREE.Group();
