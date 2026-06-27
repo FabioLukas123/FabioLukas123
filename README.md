@@ -32,6 +32,7 @@ its own copy of Three.js, so the city needs **no network at runtime**.
 | `C` | hand the wheel back and forth — *let the city drive* (cinematic dolly) ↔ walk it yourself |
 | `W A S D` + mouse | drift and look (manual mode) |
 | drag / swipe | glance around the moving city (works on touch) |
+| `E` / tap prompt | at the club door, ride the elevator down into THE BLUE NOTE (and back up) |
 | `SHIFT` | hurry — the band picks up with you |
 | `M` | mute the band |
 
@@ -41,7 +42,8 @@ the stars — then settles into a slow dolly down the avenue toward the
 to take control, or just drag to glance around without stopping.
 
 Wander down to **THE BLUE NOTE**, the jazz club off the avenue — the band gets
-louder and more present the closer you stand.
+louder and more present the closer you stand, and at the door you can **ride
+the elevator down inside**, into the basement room where the band is playing.
 
 ## What's inside
 
@@ -57,7 +59,11 @@ louder and more present the closer you stand.
   great searchlights raking the sky.
 - **`src/life.js`** — the city is not empty: headlamp/tail-light traffic runs
   the avenue and cross-streets, and an elevated train periodically glides across
-  a lit viaduct in the mid-distance.
+  a lit viaduct (with a station headhouse) in the mid-distance.
+- **`src/interior.js`** — **THE BLUE NOTE**, a fully walkable basement jazz
+  club reached by a brass elevator down a rung-lined shaft: a lit stage and a
+  four-piece band in silhouette, candle-lit tables, a back bar, spotlit smoke.
+  Inside, the score is locked fully present.
 - **`src/camera.js`** — the direction: a one-time establishing shot, a
   hand-authored spline of "stations" for the cinematic dolly, a weighty manual
   fly-cam, and drag-to-peek for touch.
