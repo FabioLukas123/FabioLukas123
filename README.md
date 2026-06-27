@@ -64,6 +64,10 @@ the elevator down inside**, into the basement room where the band is playing.
   club reached by a brass elevator down a rung-lined shaft: a lit stage and a
   four-piece band in silhouette, candle-lit tables, a back bar, spotlit smoke.
   Inside, the score is locked fully present.
+- **`src/theater_interior.js`** — **THE ORPHEUM**, a walkable Deco picture
+  palace: walk down the raked aisle to a seat before a gilded proscenium and a
+  flickering silver screen that lights the rows of red seats. Both venues share
+  one enter/leave system; press `E` (or tap) at either doorway.
 - **`src/camera.js`** — the direction: a one-time establishing shot, a
   hand-authored spline of "stations" for the cinematic dolly, a weighty manual
   fly-cam, and drag-to-peek for touch.
