@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0c12" />
+  <title>THE CITY — A Dark Deco Metropolis</title>
+  <meta name="description" content="An explorable Dark Deco city. Art Deco architecture, noir light, monumental engineering and an endless evolving jazz score." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- The overture gate. Required for audio; also the first deliberate breath. -->
+  <div id="gate" class="gate">
+    <div class="gate__frame">
+      <div class="gate__rule gate__rule--top"></div>
+      <div class="gate__kicker">EST. NINETEEN THIRTY-NINE</div>
+      <h1 class="gate__title">THE&nbsp;CITY</h1>
+      <div class="gate__sub">A&nbsp;DARK&nbsp;DECO&nbsp;METROPOLIS</div>
+      <div class="gate__rule gate__rule--bottom"></div>
+      <p class="gate__blurb">
+        Steel and shadow. A thousand lit windows and no one at home.
+        Somewhere below, a band is already playing.
+      </p>
+      <button id="enter" class="gate__enter" type="button">
+        <span>ENTER THE CITY</span>
+      </button>
+      <div class="gate__hint">headphones recommended · sound on</div>
+    </div>
+    <div id="loadbar" class="loadbar"><i></i></div>
+  </div>
+
+  <!-- The living HUD: thin, diegetic, never modern. -->
+  <div id="hud" class="hud" aria-hidden="true">
+    <div class="hud__corner hud__corner--tl"></div>
+    <div class="hud__corner hud__corner--tr"></div>
+    <div class="hud__corner hud__corner--bl"></div>
+    <div class="hud__corner hud__corner--br"></div>
+    <div class="hud__place" id="place">THE VIADUCT</div>
+    <div class="hud__meta">
+      <span id="clock">— : —</span>
+      <span class="hud__dot">·</span>
+      <span id="track">THE BAND IS WARMING UP</span>
+    </div>
+    <div class="hud__controls" id="controls">
+      <kbd>W A S D</kbd> drift
+      <kbd>MOUSE</kbd> look
+      <kbd>SHIFT</kbd> hurry
+      <kbd>C</kbd> let the city drive
+      <kbd>M</kbd> mute
+    </div>
+  </div>
+
+  <canvas id="scene"></canvas>
+
+  <!-- A film vignette frame that lives above the canvas for depth. -->
+  <div class="frame" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <script type="module" src="./dist/city.bundle.js"></script>
+  <noscript>
+    <div class="noscript">This city is built from light and code. Please enable JavaScript to enter.</div>
+  </noscript>
+</body>
+</html>

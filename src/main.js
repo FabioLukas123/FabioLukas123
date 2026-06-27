@@ -1,0 +1,234 @@
+/* =========================================================================
+   THE CITY — entry point
+   Wires together world, air, lens, light, post, and the band.
+   ========================================================================= */
+import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+
+import { City } from "./city.js";
+import { Atmosphere } from "./atmosphere.js";
+import { CameraDirector } from "./camera.js";
+import { JazzEngine } from "./audio/jazz.js";
+
+const canvas = document.getElementById("scene");
+const $ = (id) => document.getElementById(id);
+
+// ---- renderer ----------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias: true, powerPreference: "high-performance",
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// ---- scene + fog -------------------------------------------------------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x06080e);
+// two-layer atmosphere: exponential haze + colour
+scene.fog = new THREE.FogExp2(0x0a0e16, 0.0016);
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.5, 6000);
+camera.position.set(0, 6, 820);
+
+// ---- lighting: light only to sculpt -----------------------------------
+// a very low ambient so shadows stay deep
+scene.add(new THREE.AmbientLight(0x223044, 0.25));
+// the "moon": a cold key from high and behind, casting long shadows
+const moon = new THREE.DirectionalLight(0x6f86b8, 0.9);
+moon.position.set(-300, 600, 400);
+moon.castShadow = true;
+moon.shadow.mapSize.set(2048, 2048);
+moon.shadow.camera.near = 50;
+moon.shadow.camera.far = 2200;
+moon.shadow.camera.left = -800; moon.shadow.camera.right = 800;
+moon.shadow.camera.top = 800; moon.shadow.camera.bottom = -800;
+moon.shadow.bias = -0.0004;
+scene.add(moon);
+// a warm sodium glow rising from the streets (the city's own light)
+const cityGlow = new THREE.HemisphereLight(0x2a1c0a, 0x000000, 0.5);
+scene.add(cityGlow);
+
+// ---- world -------------------------------------------------------------
+const city = new City(scene).build();
+const atmosphere = new Atmosphere(scene);
+
+// ---- wet street mirror -------------------------------------------------
+// a real reflector for the rain-slicked avenue, dimmed and tinted noir.
+const mirror = new Reflector(new THREE.PlaneGeometry(1600, 2600), {
+  clipBias: 0.003,
+  textureWidth: Math.min(1024, innerWidth) * Math.min(devicePixelRatio, 2),
+  textureHeight: Math.min(1024, innerHeight) * Math.min(devicePixelRatio, 2),
+  color: 0x0c1018,
+});
+mirror.rotation.x = -Math.PI / 2;
+mirror.position.y = 0.02;
+mirror.position.z = -200;
+scene.add(mirror);
+
+// ---- camera director ---------------------------------------------------
+const director = new CameraDirector(camera, canvas);
+
+// ---- post processing ---------------------------------------------------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.7, 0.62);
+composer.addPass(bloom);
+
+// noir colour grade: teal shadows, amber highlights, vignette, grain,
+// subtle chromatic aberration at the edges.
+const GradeShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uVignette: { value: 1.15 },
+    uAberration: { value: 0.0016 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime, uVignette, uAberration;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    void main(){
+      vec2 uv = vUv;
+      vec2 d = uv - 0.5;
+      float r2 = dot(d,d);
+      // chromatic aberration grows toward the edges
+      float a = uAberration * (0.4 + r2*2.0);
+      vec3 col;
+      col.r = texture2D(tDiffuse, uv + d*a).r;
+      col.g = texture2D(tDiffuse, uv).g;
+      col.b = texture2D(tDiffuse, uv - d*a).b;
+      // split-tone: push shadows teal, highlights amber
+      float l = dot(col, vec3(0.299,0.587,0.114));
+      vec3 shadowTint = vec3(0.16,0.42,0.46);
+      vec3 highTint   = vec3(1.0,0.78,0.45);
+      vec3 graded = mix(col*shadowTint*1.6, col*highTint, smoothstep(0.15,0.8,l));
+      col = mix(col, graded, 0.55);
+      // vignette
+      float vig = smoothstep(0.9, 0.18, r2*uVignette);
+      col *= mix(0.35, 1.0, vig);
+      // faint moving grain
+      float g = hash(uv*vec2(1920.0,1080.0)+uTime)*0.06 - 0.03;
+      col += g;
+      // gentle filmic lift in the blacks so darkness has texture
+      col = max(col, vec3(0.004,0.006,0.01));
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+};
+const gradePass = new ShaderPass(GradeShader);
+composer.addPass(gradePass);
+composer.addPass(new OutputPass());
+
+// ---- audio -------------------------------------------------------------
+const band = new JazzEngine();
+
+// ---- HUD wiring --------------------------------------------------------
+const hud = $("hud");
+const placeEl = $("place");
+const trackEl = $("track");
+const clockEl = $("clock");
+
+function fmtClock(t) {
+  // a slow noir clock: always somewhere after midnight
+  const mins = (Math.floor(t * 12) + 12 * 60 + 137) % (24 * 60);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  const hh = ((h + 11) % 12 + 1);
+  return `${hh}:${m.toString().padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+
+let lastPlace = "";
+function updateHud(time) {
+  if (director.stationName !== lastPlace) {
+    lastPlace = director.stationName;
+    placeEl.style.opacity = "0";
+    setTimeout(() => { placeEl.textContent = director.stationName; placeEl.style.opacity = "1"; }, 600);
+  }
+  clockEl.textContent = fmtClock(time);
+  trackEl.textContent = band.muted ? "SILENCE" : `THE BAND · ${band.currentChordName}`;
+}
+
+// ---- the overture gate -------------------------------------------------
+const gate = $("gate");
+const enterBtn = $("enter");
+const loadbar = $("loadbar").querySelector("i");
+
+// a brief faux-load so the first frames render warm
+let loaded = 0;
+const loadTick = setInterval(() => {
+  loaded = Math.min(100, loaded + Math.random() * 22);
+  loadbar.style.width = loaded + "%";
+  if (loaded >= 100) clearInterval(loadTick);
+}, 180);
+
+let entered = false;
+function enter() {
+  if (entered) return;
+  entered = true;
+  enterBtn.classList.add("is-loading");
+  // open the door immediately; let the band warm up without blocking the city
+  gate.classList.add("is-hidden");
+  hud.classList.add("is-live");
+  hud.setAttribute("aria-hidden", "false");
+  band.start().catch(() => { /* audio may be blocked; the city stays silent */ });
+}
+enterBtn.addEventListener("click", enter);
+
+// ---- global keys -------------------------------------------------------
+addEventListener("keydown", (e) => {
+  if (!entered) return;
+  if (e.code === "KeyC") director.toggleMode();
+  if (e.code === "KeyM") band.toggleMute();
+});
+// clicking the canvas in manual mode re-locks the pointer
+canvas.addEventListener("click", () => {
+  if (entered && director.mode === "manual") canvas.requestPointerLock?.();
+});
+
+// ---- resize ------------------------------------------------------------
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  bloom.setSize(innerWidth, innerHeight);
+});
+
+// ---- the loop ----------------------------------------------------------
+const clock = new THREE.Clock();
+let frame = 0;
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.05, clock.getDelta());
+  const time = clock.elapsedTime;
+
+  const intensity = director.update(dt, time);
+  band.setIntensity(intensity);
+  city.update(time);
+  atmosphere.update(dt, time, camera);
+
+  // bloom breathes a little with the music's intensity
+  bloom.strength = 0.7 + intensity * 0.5 + Math.sin(time * 0.6) * 0.05;
+  gradePass.uniforms.uTime.value = time;
+
+  // keep the mirror following the camera down the avenue (cheap, big payoff)
+  mirror.position.z = camera.position.z - 200;
+
+  composer.render();
+
+  if (entered && (frame++ % 6 === 0)) updateHud(time);
+}
+tick();
+
+// expose for debugging in the console
+window.__city = { scene, camera, city, band, director };
