@@ -42,6 +42,13 @@ export class CameraDirector {
     this.introDur = 9.0;
     this._introStart = { p: [0, 2.4, 985], look: [-30, 240, -120] };
 
+    // the club-interior visit (set by main.js)
+    this.interior = null;
+    this.phaseT = 0;
+    this.descendDur = 7.5;
+    this.ascendDur = 6.0;
+    this._prevMode = "cinematic";
+
     // manual state
     this.pos = new THREE.Vector3(0, 6, 820);
     this.yaw = Math.PI;     // facing -z down the avenue
@@ -110,6 +117,27 @@ export class CameraDirector {
     this.stationName = "THE CITY";
   }
 
+  // ride the elevator down into the jazz club, and back out again
+  enterClub() {
+    if (!this.interior || this.mode === "descend" || this.mode === "interior" ||
+        this.mode === "ascend") return false;
+    this._prevMode = (this.mode === "manual") ? "manual" : "cinematic";
+    this.mode = "descend";
+    this.phaseT = 0;
+    this.interior.show(true);
+    if (document.pointerLockElement === this.dom) document.exitPointerLock?.();
+    return true;
+  }
+  exitClub() {
+    if (this.mode !== "interior") return false;
+    this.mode = "ascend";
+    this.phaseT = 0;
+    return true;
+  }
+  get inClub() {
+    return this.mode === "descend" || this.mode === "interior" || this.mode === "ascend";
+  }
+
   toggleMode() {
     if (this.mode === "intro") { this.mode = "cinematic"; this.t = 0; }
     if (this.mode === "cinematic") {
@@ -150,6 +178,41 @@ export class CameraDirector {
   // returns intensity 0..1 for the music (motion + height)
   update(dt, time) {
     let motion = 0;
+
+    // ---- the club visit: elevator down, the room, elevator up ----------
+    if (this.inClub) {
+      if (this.mode === "descend") {
+        this.phaseT += dt / this.descendDur;
+        const pose = this.interior.cameraPose("descend", Math.min(1, this.phaseT), time);
+        this.cam.position.copy(pose.p);
+        this.cam.lookAt(pose.look);
+        this.stationName = "DESCENDING";
+        if (this.phaseT >= 1) this.mode = "interior";
+      } else if (this.mode === "interior") {
+        const pose = this.interior.cameraPose("interior", 0, time);
+        this.cam.position.copy(pose.p);
+        this.cam.lookAt(pose.look);
+        // let people glance around the room
+        if (!this._dragging) { this._peekTargetYaw *= 0.94; this._peekTargetPitch *= 0.94; }
+        this.peekYaw += (this._peekTargetYaw - this.peekYaw) * 0.12;
+        this.peekPitch += (this._peekTargetPitch - this.peekPitch) * 0.12;
+        this.cam.rotateY(this.peekYaw);
+        this.cam.rotateX(this.peekPitch);
+        this.stationName = "THE BLUE NOTE";
+      } else { // ascend
+        this.phaseT += dt / this.ascendDur;
+        const pose = this.interior.cameraPose("ascend", Math.min(1, this.phaseT), time);
+        this.cam.position.copy(pose.p);
+        this.cam.lookAt(pose.look);
+        this.stationName = "RISING";
+        if (this.phaseT >= 1) {
+          this.interior.show(false);
+          this.mode = this._prevMode;
+        }
+      }
+      return 0.78;   // the band is right here — keep it lively
+    }
+
     if (this.mode === "intro") {
       this.introT += dt / this.introDur;
       const k = this._smooth(Math.min(1, this.introT));

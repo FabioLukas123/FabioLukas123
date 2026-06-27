@@ -13,6 +13,7 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { City } from "./city.js";
 import { Atmosphere } from "./atmosphere.js";
 import { Life } from "./life.js";
+import { ClubInterior } from "./interior.js";
 import { CameraDirector } from "./camera.js";
 import { JazzEngine } from "./audio/jazz.js";
 
@@ -65,6 +66,7 @@ scene.add(lantern);
 const city = new City(scene, LOW).build();
 const atmosphere = new Atmosphere(scene, LOW);
 const life = new Life(scene, LOW);
+const interior = new ClubInterior(scene);
 
 // ---- wet street mirror -------------------------------------------------
 // a real reflector for the rain-slicked avenue, dimmed and tinted noir.
@@ -82,6 +84,7 @@ scene.add(mirror);
 
 // ---- camera director ---------------------------------------------------
 const director = new CameraDirector(camera, canvas);
+director.interior = interior;
 // honour reduced-motion: gentler drift, calmer lens
 if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
   director.speed *= 0.45;
@@ -158,10 +161,13 @@ function fmtClock(t) {
   return `${hh}:${m.toString().padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
+const promptEl = $("prompt");
 let lastPlace = "";
 let nearClub = false;
+let canEnterClub = false;
 function updateHud(time) {
-  const place = nearClub ? "THE BLUE NOTE" : director.stationName;
+  const place = director.inClub ? director.stationName
+    : (nearClub ? "THE BLUE NOTE" : director.stationName);
   if (place !== lastPlace) {
     lastPlace = place;
     placeEl.style.opacity = "0";
@@ -170,7 +176,14 @@ function updateHud(time) {
   clockEl.textContent = fmtClock(time);
   trackEl.textContent = band.muted
     ? "SILENCE"
-    : (nearClub ? `INSIDE · ${band.currentChordName}` : `THE BAND · ${band.currentChordName}`);
+    : ((nearClub || director.inClub) ? `INSIDE · ${band.currentChordName}` : `THE BAND · ${band.currentChordName}`);
+  // the doorway prompt
+  if (promptEl) {
+    if (canEnterClub) promptEl.textContent = "▾  [ E ]  STEP INSIDE";
+    else if (director.mode === "interior") promptEl.textContent = "▴  [ E ]  BACK TO THE STREET";
+    else promptEl.textContent = "";
+    promptEl.style.opacity = (canEnterClub || director.mode === "interior") ? "1" : "0";
+  }
 }
 
 // ---- the overture gate -------------------------------------------------
@@ -203,8 +216,14 @@ enterBtn.addEventListener("click", enter);
 // ---- global keys -------------------------------------------------------
 addEventListener("keydown", (e) => {
   if (!entered) return;
-  if (e.code === "KeyC") director.toggleMode();
   if (e.code === "KeyM") band.toggleMute();
+  if (e.code === "KeyE") {
+    if (director.mode === "interior") director.exitClub();
+    else if (canEnterClub) director.enterClub();
+    return;
+  }
+  // C only toggles the walk-cam out in the city, not during the club visit
+  if (e.code === "KeyC" && !director.inClub) director.toggleMode();
 });
 // clicking the canvas in manual mode re-locks the pointer
 canvas.addEventListener("click", () => {
@@ -231,17 +250,27 @@ function tick() {
   const intensity = director.update(dt, time);
 
   // proximity to the hidden jazz club: the closer you stand, the louder and
-  // more present the band — music as a place you can walk toward.
-  const dClub = camera.position.distanceTo(city.clubPos);
-  const prox = Math.max(0, Math.min(1, 1 - (dClub - 30) / 220));
+  // more present the band — and inside, it's all around you.
+  let prox;
+  if (director.inClub) {
+    prox = 1; nearClub = true;
+  } else {
+    const dClub = camera.position.distanceTo(city.clubPos);
+    prox = Math.max(0, Math.min(1, 1 - (dClub - 30) / 220));
+    nearClub = prox > 0.45;
+  }
+  canEnterClub = nearClub && !director.inClub && prox > 0.6;
   band.setProximity(prox);
   band.setIntensity(Math.max(intensity, prox * 0.85));
   if (city.clubGlow) city.clubGlow.material.opacity = 0.55 + 0.3 * Math.sin(time * 2) + prox * 0.4;
-  nearClub = prox > 0.45;
 
   city.update(time);
+  interior.update(dt, time);
   atmosphere.update(dt, time, camera);
   life.update(dt, camera);
+  // underground, hide the rain and the street mirror (saves a full pass)
+  if (atmosphere.rain) atmosphere.rain.visible = !director.inClub;
+  mirror.visible = !director.inClub;
 
   // the travelling lantern hangs just above and ahead of the viewer
   lantern.position.set(camera.position.x, camera.position.y + 6, camera.position.z);
@@ -260,4 +289,4 @@ function tick() {
 tick();
 
 // expose for debugging in the console
-window.__city = { scene, camera, city, band, director, renderer, composer, life, atmosphere };
+window.__city = { scene, camera, city, band, director, renderer, composer, life, atmosphere, interior };
