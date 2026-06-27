@@ -186,7 +186,7 @@ export class CameraDirector {
         const pose = this.interior.cameraPose("descend", Math.min(1, this.phaseT), time);
         this.cam.position.copy(pose.p);
         this.cam.lookAt(pose.look);
-        this.stationName = "DESCENDING";
+        this.stationName = this.interior.enterLabel || "ENTERING";
         if (this.phaseT >= 1) this.mode = "interior";
       } else if (this.mode === "interior") {
         const pose = this.interior.cameraPose("interior", 0, time);
@@ -198,13 +198,13 @@ export class CameraDirector {
         this.peekPitch += (this._peekTargetPitch - this.peekPitch) * 0.12;
         this.cam.rotateY(this.peekYaw);
         this.cam.rotateX(this.peekPitch);
-        this.stationName = "THE BLUE NOTE";
+        this.stationName = this.interior.name || "INSIDE";
       } else { // ascend
         this.phaseT += dt / this.ascendDur;
         const pose = this.interior.cameraPose("ascend", Math.min(1, this.phaseT), time);
         this.cam.position.copy(pose.p);
         this.cam.lookAt(pose.look);
-        this.stationName = "RISING";
+        this.stationName = this.interior.exitLabel || "LEAVING";
         if (this.phaseT >= 1) {
           this.interior.show(false);
           this.mode = this._prevMode;

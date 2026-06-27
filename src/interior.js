@@ -21,6 +21,10 @@ const CABX = ROOM.x, CABZ = ROOM.z + ROOM.d / 2 - 6;
 export class ClubInterior {
   constructor(scene) {
     this.scene = scene;
+    this.name = "THE BLUE NOTE";
+    this.enterLabel = "DESCENDING";
+    this.exitLabel = "RISING";
+    this.doorPos = CLUB_DOOR;
     this.group = new THREE.Group();
     this.group.visible = false;       // only shown while you're inside
     scene.add(this.group);
