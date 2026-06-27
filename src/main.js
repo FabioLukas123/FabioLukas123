@@ -12,6 +12,7 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 
 import { City } from "./city.js";
 import { Atmosphere } from "./atmosphere.js";
+import { Life } from "./life.js";
 import { CameraDirector } from "./camera.js";
 import { JazzEngine } from "./audio/jazz.js";
 
@@ -22,13 +23,19 @@ const $ = (id) => document.getElementById(id);
 const renderer = new THREE.WebGLRenderer({
   canvas, antialias: true, powerPreference: "high-performance",
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia("(pointer: coarse)").matches ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Shadows are nearly invisible in this emissive, fog-bound night, and a
+// shadow pass would re-render every tower a second time. We sculpt with
+// directional shading + emissive + bloom instead, and keep the budget for
+// the wet-street reflection, which earns its cost.
+renderer.shadowMap.enabled = false;
+
+// quality tier: phones get a lighter city so it still glides.
+const LOW = matchMedia("(max-width: 820px), (pointer: coarse)").matches;
 
 // ---- scene + fog -------------------------------------------------------
 const scene = new THREE.Scene();
@@ -42,31 +49,30 @@ camera.position.set(0, 6, 820);
 // ---- lighting: light only to sculpt -----------------------------------
 // a very low ambient so shadows stay deep
 scene.add(new THREE.AmbientLight(0x223044, 0.25));
-// the "moon": a cold key from high and behind, casting long shadows
+// the "moon": a cold key from high and behind, raking the stone
 const moon = new THREE.DirectionalLight(0x6f86b8, 0.9);
 moon.position.set(-300, 600, 400);
-moon.castShadow = true;
-moon.shadow.mapSize.set(2048, 2048);
-moon.shadow.camera.near = 50;
-moon.shadow.camera.far = 2200;
-moon.shadow.camera.left = -800; moon.shadow.camera.right = 800;
-moon.shadow.camera.top = 800; moon.shadow.camera.bottom = -800;
-moon.shadow.bias = -0.0004;
 scene.add(moon);
 // a warm sodium glow rising from the streets (the city's own light)
 const cityGlow = new THREE.HemisphereLight(0x2a1c0a, 0x000000, 0.5);
 scene.add(cityGlow);
+// a single warm lantern that travels with the viewer, giving nearby stone
+// and the wet street real falloff without paying for dozens of lights.
+const lantern = new THREE.PointLight(0xffb368, 60, 130, 2.0);
+scene.add(lantern);
 
 // ---- world -------------------------------------------------------------
-const city = new City(scene).build();
-const atmosphere = new Atmosphere(scene);
+const city = new City(scene, LOW).build();
+const atmosphere = new Atmosphere(scene, LOW);
+const life = new Life(scene, LOW);
 
 // ---- wet street mirror -------------------------------------------------
 // a real reflector for the rain-slicked avenue, dimmed and tinted noir.
+const reflRes = LOW ? 384 : 768;
 const mirror = new Reflector(new THREE.PlaneGeometry(1600, 2600), {
   clipBias: 0.003,
-  textureWidth: Math.min(1024, innerWidth) * Math.min(devicePixelRatio, 2),
-  textureHeight: Math.min(1024, innerHeight) * Math.min(devicePixelRatio, 2),
+  textureWidth: reflRes,
+  textureHeight: reflRes,
   color: 0x0c1018,
 });
 mirror.rotation.x = -Math.PI / 2;
@@ -216,6 +222,10 @@ function tick() {
   band.setIntensity(intensity);
   city.update(time);
   atmosphere.update(dt, time, camera);
+  life.update(dt, camera);
+
+  // the travelling lantern hangs just above and ahead of the viewer
+  lantern.position.set(camera.position.x, camera.position.y + 6, camera.position.z);
 
   // bloom breathes a little with the music's intensity
   bloom.strength = 0.7 + intensity * 0.5 + Math.sin(time * 0.6) * 0.05;
@@ -231,4 +241,4 @@ function tick() {
 tick();
 
 // expose for debugging in the console
-window.__city = { scene, camera, city, band, director };
+window.__city = { scene, camera, city, band, director, renderer, composer };

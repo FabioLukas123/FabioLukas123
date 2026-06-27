@@ -11,14 +11,16 @@ import * as THREE from "three";
 
 // A hand-authored spline of "stations" the cinematic camera visits.
 // Each: position, where it looks, and a name for the HUD.
+// Low in the canyon, eyes tilted up — the visitor stays small and the
+// towers always loom. The Herald grows at the end of the avenue.
 const STATIONS = [
-  { p: [0, 6, 820], look: [0, 60, -200], name: "THE VIADUCT" },
-  { p: [-22, 9, 520], look: [40, 120, -300], name: "BRASS ROW" },
-  { p: [18, 5, 240], look: [-30, 90, -400], name: "THE UNDERPASS" },
-  { p: [-10, 22, -40], look: [0, 160, -600], name: "FOUNTAIN SQUARE" },
-  { p: [12, 40, -360], look: [0, 220, -1100], name: "THE HIGH LINE" },
-  { p: [0, 80, -680], look: [0, 280, -1100], name: "HERALD APPROACH" },
-  { p: [0, 150, -940], look: [0, 320, -1100], name: "THE HERALD" },
+  { p: [0, 5, 800], look: [0, 110, -200], name: "THE VIADUCT" },
+  { p: [-20, 8, 520], look: [30, 150, -300], name: "BRASS ROW" },
+  { p: [16, 5, 250], look: [-24, 130, -450], name: "THE UNDERPASS" },
+  { p: [-12, 14, -30], look: [0, 200, -700], name: "FOUNTAIN SQUARE" },
+  { p: [10, 22, -370], look: [0, 300, -1140], name: "THE HIGH LINE" },
+  { p: [-6, 28, -680], look: [0, 360, -1140], name: "HERALD APPROACH" },
+  { p: [0, 18, -940], look: [0, 420, -1140], name: "UNDER THE HERALD" },
 ];
 
 export class CameraDirector {

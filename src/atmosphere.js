@@ -22,8 +22,9 @@ function hazeSprite() {
 }
 
 export class Atmosphere {
-  constructor(scene) {
+  constructor(scene, low = false) {
     this.scene = scene;
+    this.low = low;
     this._haze();
     this._rain();
     this._searchlights();
@@ -37,7 +38,7 @@ export class Atmosphere {
       opacity: 0.5, depthWrite: false, blending: THREE.NormalBlending,
     });
     this.haze = [];
-    const N = 90;
+    const N = this.low ? 40 : 90;
     for (let i = 0; i < N; i++) {
       const s = new THREE.Sprite(mat.clone());
       const scale = 80 + Math.random() * 240;
@@ -55,7 +56,7 @@ export class Atmosphere {
 
   // ---- rain: long thin streaks, GPU points -----------------------------
   _rain() {
-    const N = 7000;
+    const N = this.low ? 2800 : 7000;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(N * 3);
     const vel = new Float32Array(N);

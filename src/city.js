@@ -57,8 +57,9 @@ function makeWindowTexture(cols, rows, warmth = 1) {
 }
 
 export class City {
-  constructor(scene) {
+  constructor(scene, low = false) {
     this.scene = scene;
+    this.low = low;
     this.group = new THREE.Group();
     this.scene.add(this.group);
     this.beacons = [];          // pulsing rooftop lights
@@ -89,8 +90,9 @@ export class City {
   build() {
     this._ground();
     this._avenue();
+    this._avenueWalls();   // the canyon that leads the eye to the Herald
     this._skyline();
-    this._herald();    // the one impossible central tower
+    this._herald();        // the one impossible central tower
     return this;
   }
 
@@ -112,25 +114,62 @@ export class City {
 
   // ---- the central avenue the camera travels ---------------------------
   _avenue() {
-    // sodium street lamps marching down the avenue (the "viaduct")
+    // Sodium street lamps marching down the avenue (the "viaduct").
+    // The glow is sold by bloom (emissive bulbs) + a reflective light "pool"
+    // decal on the wet street — NOT by 50 real point lights, which would
+    // crater the framerate. A couple of camera-followed lights (in main.js)
+    // give nearby contact light instead.
     this.lamps = [];
-    const lampGeo = new THREE.SphereGeometry(0.6, 10, 10);
-    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffcf8a });
+    const lampGeo = new THREE.SphereGeometry(0.7, 12, 12);
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd79a });
     const poleGeo = new THREE.CylinderGeometry(0.18, 0.26, 14, 8);
-    for (let z = -900; z < 900; z += 70) {
+    const armGeo = new THREE.BoxGeometry(3.4, 0.4, 0.4);
+    const poolTex = this._radialTex(0xffb765);
+    const poolMat = new THREE.SpriteMaterial({
+      map: poolTex, color: 0xffb765, transparent: true, opacity: 0.5,
+      depthWrite: false, blending: THREE.AdditiveBlending, rotation: 0,
+    });
+
+    for (let z = -900; z < 900; z += 64) {
       for (const side of [-1, 1]) {
+        const lamp = new THREE.Group();
         const pole = new THREE.Mesh(poleGeo, this.brass);
         pole.position.set(side * 26, 7, z);
-        this.group.add(pole);
-        const bulb = new THREE.Mesh(lampGeo, lampMat);
-        bulb.position.set(side * 26, 14.4, z);
-        this.group.add(bulb);
-        const pl = new THREE.PointLight(0xffb765, 18, 90, 2.0);
-        pl.position.set(side * 26, 14, z);
-        this.group.add(pl);
-        this.lamps.push({ light: pl, base: 18, phase: Math.random() * 6.28 });
+        lamp.add(pole);
+        // a gooseneck arm reaching over the curb
+        const arm = new THREE.Mesh(armGeo, this.brass);
+        arm.position.set(side * 26 - side * 1.7, 13.6, z);
+        lamp.add(arm);
+        const bulb = new THREE.Mesh(lampGeo, lampMat.clone());
+        bulb.position.set(side * 26 - side * 3.2, 13.2, z);
+        lamp.add(bulb);
+        // the pool of light on the wet asphalt, flattened onto the ground
+        const pool = new THREE.Sprite(poolMat.clone());
+        pool.scale.set(34, 34, 1);
+        pool.position.set(side * 26 - side * 3.2, 0.4, z);
+        pool.material.rotation = 0;
+        lamp.add(pool);
+        this.group.add(lamp);
+        this.lamps.push({ bulb, pool, base: 0.5, phase: Math.random() * 6.28 });
       }
     }
+  }
+
+  // a soft round falloff texture, used for light pools and glows
+  _radialTex(hex) {
+    const col = new THREE.Color(hex);
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const g = c.getContext("2d");
+    const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    const rgb = `${(col.r * 255) | 0},${(col.g * 255) | 0},${(col.b * 255) | 0}`;
+    grd.addColorStop(0, `rgba(${rgb},0.9)`);
+    grd.addColorStop(0.4, `rgba(${rgb},0.35)`);
+    grd.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
   }
 
   // ---- a single Art Deco tower -----------------------------------------
@@ -192,14 +231,12 @@ export class City {
       spire.position.y = baseY + spireH / 2;
       crown.add(spire);
       baseY += spireH;
-      // a red aviation beacon at the very tip
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.9, 8, 8), this.beaconMat);
+      // a red aviation beacon at the very tip (glow comes from bloom)
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.1, 10, 10),
+        this.beaconMat.clone());
       beacon.position.y = baseY;
       crown.add(beacon);
-      const bl = new THREE.PointLight(0xff4422, 6, 60, 2);
-      bl.position.y = baseY;
-      crown.add(bl);
-      this.beacons.push({ mesh: beacon, light: bl, phase: Math.random() * 6.28 });
+      this.beacons.push({ mesh: beacon, phase: Math.random() * 6.28 });
     }
     tower.add(crown);
 
@@ -216,7 +253,8 @@ export class City {
       placed.some(p => Math.hypot(p.x - x, p.z - z) < (p.r + r) * 0.9);
 
     // blocks flanking the avenue, denser & taller toward the centre
-    for (let ring = 0; ring < 7; ring++) {
+    const rings = this.low ? 4 : 7;
+    for (let ring = 0; ring < rings; ring++) {
       const count = 14 + ring * 6;
       for (let i = 0; i < count; i++) {
         const a = (i / count) * Math.PI * 2 + rand(-0.1, 0.1);
@@ -237,22 +275,45 @@ export class City {
     }
   }
 
+  // ---- canyon walls flanking the avenue down to the Herald -------------
+  _avenueWalls() {
+    // Continuous ranks of towers along both curbs from the foreground all
+    // the way to the Herald, so the avenue reads as a deep canyon instead
+    // of petering out into empty asphalt. They grow taller toward the core.
+    const step = this.low ? [74, 100] : [46, 66];
+    for (let z = 760; z > -1040; z -= rand(step[0], step[1])) {
+      for (const side of [-1, 1]) {
+        const x = side * rand(52, 78);
+        const depthBias = 1 - Math.min(1, Math.abs(z + 200) / 1100);
+        const w = rand(24, 44), d = rand(24, 44);
+        const h = rand(70, 120) + depthBias * rand(40, 170);
+        this.makeTower(x, z, { w, d, h });
+        // a second rank set back behind the first
+        if (!this.low && chance(0.7)) {
+          const x2 = side * rand(96, 150);
+          this.makeTower(x2, z + rand(-20, 20),
+            { w: rand(26, 46), d: rand(26, 46), h: rand(80, 200) });
+        }
+      }
+    }
+  }
+
   // ---- the impossible central tower (the "Herald") ---------------------
   _herald() {
     // a single monolith far down the avenue that anchors the whole view.
-    const x = 0, z = -1100;
-    const t = this.makeTower(x, z, { w: 70, d: 70, h: 360 });
+    const x = 0, z = -1140;
+    const t = this.makeTower(x, z, { w: 86, d: 86, h: 440 });
     t.userData.isHerald = true;
     // wrap it in vertical light ribs (Deco fluting picked out by light)
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
       const rib = new THREE.Mesh(
-        new THREE.BoxGeometry(1.2, 300, 1.2),
+        new THREE.BoxGeometry(1.4, 380, 1.4),
         new THREE.MeshStandardMaterial({
-          color: 0x3a2c0e, emissive: 0xffa53c, emissiveIntensity: 1.4,
+          color: 0x3a2c0e, emissive: 0xffa53c, emissiveIntensity: 1.5,
           roughness: 0.4, metalness: 0.8,
         }));
-      rib.position.set(x + Math.cos(a) * 38, 150, z + Math.sin(a) * 38);
+      rib.position.set(x + Math.cos(a) * 46, 190, z + Math.sin(a) * 46);
       this.group.add(rib);
     }
     this.herald = t;
@@ -261,16 +322,19 @@ export class City {
 
   // ---- per-frame life --------------------------------------------------
   update(t) {
-    // aviation beacons pulse like distant heartbeats
+    // aviation beacons pulse like distant heartbeats; bloom turns the
+    // emissive sphere into a halo, so we only animate its brightness.
     for (const b of this.beacons) {
       const p = (Math.sin(t * 1.4 + b.phase) * 0.5 + 0.5);
       const v = p * p;
-      b.light.intensity = 1 + v * 8;
-      b.mesh.material.color.setRGB(0.5 + v * 0.5, 0.1 * v, 0.05 * v);
+      b.mesh.material.color.setRGB(0.35 + v * 0.95, 0.04 + 0.18 * v, 0.03 * v);
     }
-    // street lamps flicker faintly, like old sodium gas
+    // street lamps flicker faintly, like old sodium gas — purely emissive
     for (const l of this.lamps) {
-      l.light.intensity = l.base * (0.92 + Math.sin(t * 9 + l.phase) * 0.04 + Math.random() * 0.02);
+      const f = 0.9 + Math.sin(t * 9 + l.phase) * 0.05 + Math.random() * 0.02;
+      l.pool.material.opacity = l.base * f;
+      const g = 0.85 + 0.15 * f;
+      l.bulb.material.color.setRGB(1 * g, 0.84 * g, 0.6 * g);
     }
   }
 }
