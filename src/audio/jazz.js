@@ -64,6 +64,51 @@ export class JazzEngine {
     this.baseGain = 0.9;
     this._prox = 0;
     this._proxApplied = -1;
+    // which instruments are playing right now (changed per scene)
+    this.voices = { ride:true, brush:true, kick:true, bass:true, comp:true, trumpet:true, pad:true };
+    this.mood = "club";
+    this._colorHz = 18000;     // master tone (low = muffled / distant)
+  }
+
+  // Each scene re-voices the band: instrumentation, tempo, brightness, volume.
+  // Music behaves like another architectural layer — the room shapes the sound.
+  setMood(name){
+    const M = {
+      opening:  { bpm:64, swing:0.66, gain:0.5, color:9000,  intensity:0.12,
+                  v:{ride:false,brush:false,kick:false,bass:true,comp:false,trumpet:true,pad:true} },
+      entrance: { bpm:72, swing:0.64, gain:0.8, color:14000, intensity:0.4,
+                  v:{ride:true,brush:true,kick:false,bass:true,comp:true,trumpet:true,pad:true} },
+      elevator: { bpm:70, swing:0.62, gain:0.55, color:2600, intensity:0.3,
+                  v:{ride:false,brush:true,kick:false,bass:true,comp:true,trumpet:false,pad:true} },
+      club:     { bpm:84, swing:0.62, gain:1.0, color:18000, intensity:0.85,
+                  v:{ride:true,brush:true,kick:true,bass:true,comp:true,trumpet:true,pad:true} },
+      library:  { bpm:58, swing:0.6,  gain:0.6, color:7000,  intensity:0.12,
+                  v:{ride:false,brush:false,kick:false,bass:false,comp:true,trumpet:false,pad:true} },
+      cinema:   { bpm:76, swing:0.62, gain:0.42, color:1500, intensity:0.5,
+                  v:{ride:true,brush:true,kick:false,bass:true,comp:true,trumpet:true,pad:true} },
+      clock:    { bpm:60, swing:0.58, gain:0.5, color:5000,  intensity:0.2,
+                  v:{ride:false,brush:false,kick:false,bass:true,comp:false,trumpet:true,pad:true} },
+      rooftop:  { bpm:66, swing:0.64, gain:0.78, color:11000, intensity:0.45,
+                  v:{ride:true,brush:true,kick:false,bass:true,comp:true,trumpet:true,pad:true} },
+      skyline:  { bpm:80, swing:0.62, gain:1.0, color:16000, intensity:0.75,
+                  v:{ride:true,brush:true,kick:true,bass:true,comp:true,trumpet:true,pad:true} },
+      silence:  { bpm:64, swing:0.62, gain:0.0, color:8000,  intensity:0.0,
+                  v:{ride:false,brush:false,kick:false,bass:false,comp:false,trumpet:false,pad:true} },
+    };
+    const m = M[name] || M.club;
+    this.mood = name;
+    this.bpm = m.bpm; this.swing = m.swing;
+    this.voices = m.v;
+    this.baseGain = m.gain;
+    this.setIntensity(m.intensity);
+    if (this.started){
+      const t = this.ctx.currentTime;
+      this._color.frequency.setTargetAtTime(m.color, t, 0.8);
+      const g = this.muted ? 0.0001 : m.gain * (1 + 0.2 * this._prox);
+      this.master.gain.setTargetAtTime(g, t, 1.2);   // smooth, no abrupt jumps
+    } else {
+      this._colorHz = m.color;
+    }
   }
 
   async start(){
@@ -93,10 +138,19 @@ export class JazzEngine {
     limiter.attack.value = 0.004;
     limiter.release.value = 0.18;
 
+    // a master "colour" filter: lower cutoff = muffled / distant (cinema,
+    // elevator, music heard through a wall). Scenes glide this, never cut it.
+    const color = this.ctx.createBiquadFilter();
+    color.type = "lowpass";
+    color.frequency.value = this._colorHz;
+    color.Q.value = 0.4;
+    this._color = color;
+
     this.busDry = dry; this.busWet = wet;
     dry.connect(shaper); this._convolver.connect(wet); wet.connect(shaper);
     shaper.connect(this.master);
-    this.master.connect(limiter);
+    this.master.connect(color);
+    color.connect(limiter);
     limiter.connect(this.ctx.destination);
 
     // fade the band in like a door opening on a club
@@ -184,44 +238,43 @@ export class JazzEngine {
     const whole = Math.floor(beat);
     const onBeat = (beat % 1) === 0;
     const I = this.intensity;
+    const V = this.voices;
 
     // --- ride cymbal: classic swing pattern (ding, ding-da) ---
-    if (onBeat){
-      this._ride(t, 0.10 + 0.06 * I);
-    } else if (whole % 2 === 1){ // the "da" of beats 2 & 4 area
-      this._ride(t, 0.05 + 0.04 * I);
+    if (V.ride){
+      if (onBeat) this._ride(t, 0.10 + 0.06 * I);
+      else if (whole % 2 === 1) this._ride(t, 0.05 + 0.04 * I);
     }
 
     // --- brush snare on 2 and 4 (back-beat, soft) ---
-    if (onBeat && (whole % 4 === 1 || whole % 4 === 3)){
+    if (V.brush && onBeat && (whole % 4 === 1 || whole % 4 === 3)){
       this._brush(t, 0.16 + 0.10 * I);
     }
     // --- soft kick: feathered on 1, ghost on 3 when busier ---
-    if (onBeat && whole % 4 === 0) this._kick(t, 0.18 + 0.12 * I);
-    if (onBeat && whole % 4 === 2 && I > 0.5) this._kick(t, 0.08);
+    if (V.kick && onBeat && whole % 4 === 0) this._kick(t, 0.18 + 0.12 * I);
+    if (V.kick && onBeat && whole % 4 === 2 && I > 0.5) this._kick(t, 0.08);
 
     // --- walking bass: a note every beat ---
-    if (onBeat && this._chord){
+    if (V.bass && onBeat && this._chord){
       this._bass(t, this._walk(whole));
     }
 
     // --- piano comping: stab on off-beats, sparse ---
-    if (this._chord && !onBeat && (whole % 2 === 0) && Math.random() < 0.55 + 0.3 * I){
+    if (V.comp && this._chord && !onBeat && (whole % 2 === 0) && Math.random() < 0.55 + 0.3 * I){
       this._comp(t, this._chord);
     }
     // occasional anticipation stab right before the bar
-    if (this._chord && onBeat && whole % 4 === 0 && Math.random() < 0.4){
+    if (V.comp && this._chord && onBeat && whole % 4 === 0 && Math.random() < 0.4){
       this._comp(t, this._chord, 0.7);
     }
 
     // --- muted trumpet: sparse melodic phrases, more frequent with intensity ---
-    if (onBeat && this._chord && Math.random() < (0.04 + 0.16 * I)){
+    if (V.trumpet && onBeat && this._chord && Math.random() < (0.04 + 0.16 * I)){
       this._melody(t, this._chord);
     }
 
-    // --- a soft sustained pad underneath every bar: warm "room" body that
-    //     holds the harmony together between the comping stabs ---
-    if (onBeat && this._chord && whole % 4 === 0){
+    // --- a soft sustained pad underneath every bar ---
+    if (V.pad && onBeat && this._chord && whole % 4 === 0){
       this._pad(t, this._chord);
     }
   }

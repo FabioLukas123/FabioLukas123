@@ -1,70 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0a0c12" />
-  <title>THE CITY — A Dark Deco Metropolis</title>
-  <meta name="description" content="An explorable Dark Deco city. Art Deco architecture, noir light, monumental engineering and an endless evolving jazz score." />
-  <meta property="og:title" content="THE CITY — A Dark Deco Metropolis" />
-  <meta property="og:description" content="Steel and shadow. A thousand lit windows and no one at home. Somewhere below, a band is already playing." />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070810'/%3E%3Cpath d='M16 3 L21 11 L18 11 L18 29 L14 29 L14 11 L11 11 Z' fill='%23c9a14a'/%3E%3Crect x='15' y='1' width='2' height='5' fill='%23e8b765'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#05060a" />
+  <title>GOTHAM — A Dark Deco Reel</title>
+  <meta name="description" content="Um curta animado interativo em estética Dark Deco — atmosfera, ilustração, movimento e jazz gerado ao vivo." />
+  <meta property="og:title" content="GOTHAM — A Dark Deco Reel" />
+  <meta property="og:description" content="Steel and shadow. Somewhere below, a band is already playing." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070810'/%3E%3Cpath d='M16 3 L21 11 L18 11 L18 29 L14 29 L14 11 L11 11 Z' fill='%23c9a14a'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <!-- The overture gate. Required for audio; also the first deliberate breath. -->
+  <!-- the stage where scenes cross-dissolve -->
+  <div id="stage" class="stage"></div>
+
+  <!-- atmosphere canvas: rain, fog, beams, smoke, vignette -->
+  <canvas id="fx" class="fx"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="frame" aria-hidden="true"></div>
+
+  <!-- diegetic HUD -->
+  <div id="hud" class="hud" aria-hidden="true">
+    <div class="hud__corner tl"></div><div class="hud__corner tr"></div>
+    <div class="hud__corner bl"></div><div class="hud__corner br"></div>
+    <div class="hud__progress"><i id="bar"></i></div>
+    <div id="chapter" class="hud__chapter">I · GOTHAM</div>
+    <div class="hud__controls">
+      <span><kbd>→</kbd> / <kbd>espaço</kbd> avançar</span>
+      <span><kbd>←</kbd> voltar</span>
+      <button id="sound" class="hud__btn" type="button">SOUND ♪</button>
+    </div>
+  </div>
+
+  <!-- the overture gate -->
   <div id="gate" class="gate">
     <div class="gate__frame">
-      <div class="gate__rule gate__rule--top"></div>
-      <div class="gate__kicker">EST. NINETEEN THIRTY-NINE</div>
-      <h1 class="gate__title">THE&nbsp;CITY</h1>
-      <div class="gate__sub">A&nbsp;DARK&nbsp;DECO&nbsp;METROPOLIS</div>
-      <div class="gate__rule gate__rule--bottom"></div>
+      <div class="gate__rule"></div>
+      <div class="gate__kicker">A LOST REEL · EST. MCMXXXIX</div>
+      <h1 class="gate__title">GOTHAM</h1>
+      <div class="gate__sub">A&nbsp;DARK&nbsp;DECO&nbsp;REEL</div>
+      <div class="gate__rule"></div>
       <p class="gate__blurb">
         Steel and shadow. A thousand lit windows and no one at home.
         Somewhere below, a band is already playing.
       </p>
-      <button id="enter" class="gate__enter" type="button">
-        <span>ENTER THE CITY</span>
-      </button>
-      <div class="gate__hint">headphones recommended · sound on</div>
+      <button id="enter" class="gate__enter" type="button"><span>ROLL THE FILM</span></button>
+      <div class="gate__hint">fones recomendados · som ligado</div>
     </div>
     <div id="loadbar" class="loadbar"><i></i></div>
   </div>
 
-  <!-- The living HUD: thin, diegetic, never modern. -->
-  <div id="hud" class="hud" aria-hidden="true">
-    <div class="hud__corner hud__corner--tl"></div>
-    <div class="hud__corner hud__corner--tr"></div>
-    <div class="hud__corner hud__corner--bl"></div>
-    <div class="hud__corner hud__corner--br"></div>
-    <div class="hud__place" id="place">THE VIADUCT</div>
-    <div class="hud__prompt" id="prompt"></div>
-    <div class="hud__meta">
-      <span id="clock">— : —</span>
-      <span class="hud__dot">·</span>
-      <span id="track">THE BAND IS WARMING UP</span>
-    </div>
-    <div class="hud__controls" id="controls">
-      <kbd>W A S D</kbd> drift
-      <kbd>MOUSE</kbd> look
-      <kbd>SHIFT</kbd> hurry
-      <kbd>C</kbd> let the city drive
-      <kbd>M</kbd> mute
-    </div>
-  </div>
-
-  <canvas id="scene"></canvas>
-
-  <!-- A film vignette frame that lives above the canvas for depth. -->
-  <div class="frame" aria-hidden="true"></div>
-  <div class="grain" aria-hidden="true"></div>
-
   <script type="module" src="./dist/city.bundle.js"></script>
-  <noscript>
-    <div class="noscript">This city is built from light and code. Please enable JavaScript to enter.</div>
-  </noscript>
+  <noscript><div class="noscript">Este curta é feito de luz e código. Ative o JavaScript para assistir.</div></noscript>
 </body>
 </html>
