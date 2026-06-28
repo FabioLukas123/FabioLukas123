@@ -1,0 +1,4 @@
+# Runtime dependencies for the tray app.
+# The hooks themselves need only the Python standard library.
+pystray>=0.19.4
+Pillow>=9.0.0

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Claude Status Bar
+Comment=System-tray status indicator for Claude Code
+Exec=python3 -m statusbar
+Icon=claude-status-bar
+Terminal=false
+Categories=Utility;Development;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

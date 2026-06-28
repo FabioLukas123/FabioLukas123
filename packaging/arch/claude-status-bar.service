@@ -1,0 +1,17 @@
+[Unit]
+Description=Claude Status Bar tray indicator
+Documentation=https://github.com/fabiolukas123/fabiolukas123
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# %h expands to the user's home directory. Adjust the path if you cloned the
+# repo elsewhere, or rely on the installer which rewrites ExecStart for you.
+ExecStart=/usr/bin/env python3 -m statusbar
+WorkingDirectory=%h/.local/share/claude-status-bar
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

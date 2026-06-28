@@ -1,0 +1,38 @@
+# Maintainer: claude-status-bar contributors
+pkgname=claude-status-bar
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Cross-platform system-tray status indicator for Claude Code"
+arch=('any')
+url="https://github.com/fabiolukas123/fabiolukas123"
+license=('MIT')
+depends=(
+  'python'
+  'python-pillow'
+  'python-pystray'
+  'python-gobject'
+  'gtk3'
+  'libayatana-appindicator'
+)
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+optdepends=('libcanberra: completion sound')
+
+# Build straight from this checkout. Point `source` at a release tarball or a
+# git+https URL when publishing to the AUR.
+source=()
+sha256sums=()
+
+build() {
+  cd "${startdir}/../.."
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "${startdir}/../.."
+  python -m installer --destdir="${pkgdir}" dist/*.whl
+
+  install -Dm644 packaging/arch/claude-status-bar.desktop \
+    "${pkgdir}/usr/share/applications/claude-status-bar.desktop"
+  install -Dm644 LICENSE \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

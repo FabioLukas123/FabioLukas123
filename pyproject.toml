@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-status-bar"
+version = "1.0.0"
+description = "Cross-platform system-tray status indicator for Claude Code (Arch Linux & Windows)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "claude-status-bar contributors" }]
+keywords = ["claude", "claude-code", "tray", "statusbar", "linux", "windows"]
+dependencies = [
+    "pystray>=0.19.4",
+    "Pillow>=9.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/fabiolukas123/fabiolukas123"
+Upstream = "https://github.com/m1ckc3s/claude-status-bar"
+
+[project.scripts]
+claude-status-bar = "statusbar.app:main"
+
+[tool.setuptools]
+packages = ["statusbar"]
