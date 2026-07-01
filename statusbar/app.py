@@ -66,15 +66,21 @@ class StatusBarApp:
                 "Animation",
                 Menu(
                     MenuItem(
-                        "Spinner",
+                        "Claude Spark",
+                        self._set_animation("spark"),
+                        checked=lambda _i: self.settings.get("animation") == "spark",
+                        radio=True,
+                    ),
+                    MenuItem(
+                        "Claude Code spinner",
                         self._set_animation("spinner"),
                         checked=lambda _i: self.settings.get("animation") == "spinner",
                         radio=True,
                     ),
                     MenuItem(
-                        "Spark",
-                        self._set_animation("spark"),
-                        checked=lambda _i: self.settings.get("animation") == "spark",
+                        "Crab Walking (Clawd)",
+                        self._set_animation("clawd"),
+                        checked=lambda _i: self.settings.get("animation") == "clawd",
                         radio=True,
                     ),
                 ),
@@ -188,9 +194,10 @@ class StatusBarApp:
                     sound.play_done()
                 self._prev_state = status["state"]
 
-                # Advance + render the icon.
+                # Advance + render the icon. The counter is unbounded; each
+                # animation wraps it by its own frame count inside icons.
                 if status["state"] in ("thinking", "tool"):
-                    self._frame = (self._frame + 1) % config.SPINNER_FRAMES
+                    self._frame += 1
                 else:
                     self._frame = 0
                 self.icon.icon = icons.for_state(

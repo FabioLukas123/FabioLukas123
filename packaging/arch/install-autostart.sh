@@ -44,6 +44,7 @@ Name=Claude Status Bar
 Comment=System-tray status indicator for Claude Code
 Exec=${PYTHON} -m statusbar
 Path=${REPO_DIR}
+Icon=${REPO_DIR}/statusbar/assets/app.png
 Terminal=false
 Categories=Utility;Development;
 X-GNOME-Autostart-enabled=true

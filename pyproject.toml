@@ -25,3 +25,7 @@ claude-status-bar = "statusbar.app:main"
 
 [tool.setuptools]
 packages = ["statusbar"]
+
+[tool.setuptools.package-data]
+statusbar = ["assets/*.png", "assets/*.ico", "assets/*.icns", "assets/*.mp3",
+             "assets/spark/*.png", "assets/clawd/*.png"]

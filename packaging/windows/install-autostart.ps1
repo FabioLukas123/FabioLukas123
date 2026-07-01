@@ -23,6 +23,8 @@ $shortcut.TargetPath = "wscript.exe"
 $shortcut.Arguments = "`"$vbs`""
 $shortcut.WorkingDirectory = $repoRoot
 $shortcut.Description = "Claude Status Bar tray indicator"
+$appIco = Join-Path $repoRoot "statusbar\assets\app.ico"
+if (Test-Path $appIco) { $shortcut.IconLocation = "$appIco,0" }
 $shortcut.Save()
 
 Write-Host "Installed autostart shortcut: $lnkPath"

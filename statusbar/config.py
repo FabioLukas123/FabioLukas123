@@ -36,7 +36,7 @@ STATE_PRIORITY = {
 DEFAULT_SETTINGS = {
     "show_timer": True,
     "completion_sound": True,
-    "animation": "spinner",   # "spinner" | "spark"
+    "animation": "spark",     # "spark" | "spinner" | "clawd"
     "color": "orange",        # "orange" | "system"
 }
 

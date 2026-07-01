@@ -9,14 +9,18 @@ This is a cross-platform recreation of the macOS-only
 rebuilt in Python so it runs natively in the tray on **Arch Linux**
 (AppIndicator/KStatusNotifierItem) and **Windows** (native Win32 tray).
 
-![icon states: spark, spinner, spinner, amber dot, done check](assets/preview.png)
+It uses the **original app's assets**: the official Claude spark mark as the
+resting icon, the claude.ai thinking-spark morphing animation, the pixel-art
+**Clawd crab-walking** animation, the app icon and the completion chime.
+
+![icon states: logo, spark frames, clawd frames, amber dot, done check](assets/preview.png)
 
 | State | Icon | Meaning |
 |-------|------|---------|
-| Idle | coral spark | No active work — Claude is at rest |
-| Working | rotating ring + timer | Claude is thinking or running a tool (shows elapsed time and the current action: *Editing*, *Reading*, *Running command*, …) |
+| Idle | Claude spark logo | No active work — Claude is at rest |
+| Working | animated spark / spinner / Clawd + timer | Claude is thinking or running a tool (shows elapsed time and the current action: *Editing*, *Reading*, *Running command*, …) |
 | Awaiting permission | amber dot | Claude needs you to approve something |
-| Done | spark + green check | The turn finished (chimes, then returns to idle) |
+| Done | logo + green check (chime) | The turn finished, then returns to idle |
 
 It aggregates status across **multiple simultaneous Claude Code sessions** and
 prioritises any session waiting on your input.
@@ -122,9 +126,12 @@ Right-click the tray icon for a menu with live toggles (persisted to
 `~/.claude/statusbar/config.json`):
 
 - **Show timer** — elapsed time while Claude works
-- **Completion sound** — chime when a turn finishes
-- **Animation** — *Spinner* (rotating ring) or *Spark* (pulsing logo)
-- **Icon colour** — *Claude orange* or *System* (neutral/adaptive)
+- **Completion sound** — the original completion chime when a turn finishes
+- **Animation** — *Claude Spark* (the claude.ai morphing spark),
+  *Claude Code spinner*, or *Crab Walking* (Clawd pixel art)
+- **Icon colour** — *Claude orange* or *System* (neutral ink; Clawd is
+  converted with the upstream brightness→opacity mapping so the sprite keeps
+  its depth, eyes punched out as negative space)
 - **Open state folder** — jump to `state.d/`
 - **Quit**
 
@@ -173,9 +180,11 @@ hooks/            Claude Code hooks (pure stdlib, never crash a session)
 statusbar/        the tray app
   app.py            pystray tray + poll loop + menu
   state.py          read & aggregate the per-session state files
-  icons.py          procedurally drawn icons (no binary assets)
+  icons.py          renders the original assets (logo, spark, Clawd)
   config.py         paths, colours, persisted settings
-  sound.py          cross-platform completion chime
+  sound.py          plays the original completion.mp3 (with fallbacks)
+  assets/           upstream assets: logo.png, spark/ (8 frames),
+                    clawd/ (20 frames), completion.mp3, app.png/.ico/.icns
 install.py        merge hooks into ~/.claude/settings.json
 uninstall.py      remove them again
 packaging/        arch/ (PKGBUILD, systemd, desktop) and windows/ (ps1, vbs)
@@ -203,5 +212,7 @@ python tests/test_state.py    # no GUI deps required
 
 ## Credits
 
-Concept and the macOS original by [m1ckc3s](https://github.com/m1ckc3s/claude-status-bar).
-This cross-platform rebuild is independent and MIT-licensed.
+Concept, assets (Claude spark logo/animation frames, Clawd crab-walking
+sprite, app icon, completion chime) and the macOS original by
+[m1ckc3s](https://github.com/m1ckc3s/claude-status-bar) (MIT). This
+cross-platform rebuild is independent and MIT-licensed.
