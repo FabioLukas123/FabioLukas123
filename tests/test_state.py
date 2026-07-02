@@ -81,9 +81,30 @@ def test_tool_label_mapping():
     print("ok: tool label mapping")
 
 
+def test_is_cowork():
+    # marker in entrypoint fields flags the session (Windows only)
+    s = {"entrypoint": "", "claude_entrypoint": "cowork", "term_program": "",
+         "launcher": "terminal"}
+    assert state.is_cowork(s, platform="nt")
+    assert not state.is_cowork(s, platform="posix"), "must be Windows-only"
+    # terminal sessions without markers are not cowork
+    t = {"entrypoint": "startup", "claude_entrypoint": "cli",
+         "term_program": "WindowsTerminal", "launcher": "terminal"}
+    assert not state.is_cowork(t, platform="nt")
+    print("ok: cowork heuristic")
+
+
+def test_settings_migration():
+    from statusbar import config as cfg
+    assert cfg._RENAMED_VALUES.get("clawd-skateboard") == "clawd-notebook"
+    print("ok: idle_icon rename migration")
+
+
 def main():
     tests = [
         test_tool_label_mapping,
+        test_is_cowork,
+        test_settings_migration,
         test_write_and_read_roundtrip,
         test_aggregate_permission_wins,
         test_session_end_removes_file,

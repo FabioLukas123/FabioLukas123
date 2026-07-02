@@ -126,10 +126,18 @@ def remove_state(session_id):
 def base_fields(event):
     """Common fields derived from any hook payload."""
     cwd = event.get("cwd") or os.getcwd()
+    # Was this session started from a terminal or by an app (e.g. the Claude
+    # desktop app / Cowork)? Terminals leave at least one of these behind.
+    from_terminal = any(
+        os.environ.get(var)
+        for var in ("TERM_PROGRAM", "WT_SESSION", "TERM", "SSH_TTY")
+    )
     return {
         "project": project_name(cwd),
         "cwd": cwd,
         "transcript": event.get("transcript_path", ""),
         "entrypoint": event.get("source") or event.get("entrypoint") or "",
+        "claude_entrypoint": os.environ.get("CLAUDE_CODE_ENTRYPOINT", ""),
+        "launcher": "terminal" if from_terminal else "app",
         "term_program": os.environ.get("TERM_PROGRAM", ""),
     }

@@ -39,9 +39,18 @@ DEFAULT_SETTINGS = {
     "animation": "spark",     # "spark" | "spinner" | "clawd"
     "color": "orange",        # "orange" | "system"
     # resting icon: "logo" (Claude spark) or one of the Clawd poses
-    # ("clawd" | "clawd-sunglasses" | "clawd-headphones" | "clawd-skateboard")
+    # ("clawd" | "clawd-sunglasses" | "clawd-headphones" | "clawd-notebook")
     "idle_icon": "logo",
+    # automatic poses: headphones while Spotify runs, notebook while a
+    # Cowork session works (Windows only)
+    "auto_poses": True,
+    # substrings matched against a session's entrypoint fields to flag it as
+    # a Cowork / desktop-app session
+    "cowork_markers": ["cowork", "desktop"],
 }
+
+# old asset name -> current one (settings written by previous versions)
+_RENAMED_VALUES = {"clawd-skateboard": "clawd-notebook"}
 
 
 def load_settings():
@@ -54,6 +63,8 @@ def load_settings():
             settings.update({k: data[k] for k in data if k in DEFAULT_SETTINGS})
     except Exception:
         pass
+    if settings.get("idle_icon") in _RENAMED_VALUES:
+        settings["idle_icon"] = _RENAMED_VALUES[settings["idle_icon"]]
     return settings
 
 

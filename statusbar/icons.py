@@ -28,12 +28,13 @@ ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 SPARK_FRAME_COUNT = 8
 CLAWD_FRAME_COUNT = 20
 
-# Full-colour Clawd poses usable as the resting icon (settings["idle_icon"]).
+# Full-colour Clawd poses usable as the resting icon (settings["idle_icon"])
+# or as automatic overrides (headphones for Spotify, notebook for Cowork).
 POSES = {
     "clawd": "clawd/poses/clawd.png",
     "clawd-sunglasses": "clawd/poses/clawd-sunglasses.png",
     "clawd-headphones": "clawd/poses/clawd-headphones.png",
-    "clawd-skateboard": "clawd/poses/clawd-skateboard.png",
+    "clawd-notebook": "clawd/poses/clawd-notebook.png",
 }
 
 _cache = {}
@@ -185,29 +186,46 @@ def frame_count(settings):
     return SPARK_FRAME_COUNT
 
 
-def for_state(state, frame=0, settings=None):
+def _bob(img, offset, size=config.ICON_SIZE):
+    """Shift *img* down by *offset* px — a subtle 'busy at the laptop' bob."""
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.alpha_composite(img.crop((0, 0, size, size - offset)), (0, offset))
+    return canvas
+
+
+def for_state(state, frame=0, settings=None, override_pose=None):
     """Return the icon image for an aggregate *state*.
 
     *frame* is an unbounded counter; each animation wraps it by its own
-    length. Results are cached on (state, wrapped frame, colour, animation).
+    length. *override_pose* (a POSES key) replaces the icon in idle and
+    working states — used by the automatic poses (Spotify / Cowork). While
+    working, the override gently bobs so the tray still reads as "busy".
+    Results are cached.
     """
     settings = settings or config.DEFAULT_SETTINGS
     system = settings.get("color") == "system"
     base_color = config.NEUTRAL_GREY if system else config.CLAUDE_CORAL
     anim = settings.get("animation", "spark")
     idle_choice = settings.get("idle_icon", "logo")
+    if override_pose not in POSES or state not in ("idle", "thinking", "tool"):
+        override_pose = None
 
     if state in ("thinking", "tool"):
-        frame = frame % frame_count(settings)
+        # the bob has a 2-phase cycle, slowed to every 3rd poll tick
+        frame = (frame // 3) % 2 if override_pose else frame % frame_count(settings)
     else:
         frame = 0
 
-    key = (state, frame, base_color, anim, idle_choice)
+    key = (state, frame, base_color, anim, idle_choice, override_pose)
     if key in _cache:
         return _cache[key]
 
     if state == "permission":
         img = permission()
+    elif override_pose:
+        img = pose(override_pose, adaptive=system)
+        if state in ("thinking", "tool") and frame:
+            img = _bob(img, 3)
     elif state in ("thinking", "tool"):
         if anim == "clawd":
             img = clawd_frame(frame, adaptive=system)

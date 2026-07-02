@@ -129,9 +129,19 @@ Right-click the tray icon for a menu with live toggles (persisted to
 - **Completion sound** — the original completion chime when a turn finishes
 - **Animation** — *Claude Spark* (the claude.ai morphing spark),
   *Claude Code spinner*, or *Crab Walking* (Clawd pixel art)
-- **Idle icon** — the Claude logo or one of the Clawd poses:
+- **Idle icon** — the Claude logo or one of the Clawd poses
+  (classic, sunglasses, headphones, notebook):
 
-  ![Clawd poses: classic, sunglasses, headphones, skateboard](assets/poses.png)
+  ![Clawd poses: classic, sunglasses, headphones, notebook](assets/poses.png)
+- **Auto poses** — when enabled (default), two poses appear automatically:
+  - **Headphones** while Spotify is running on the machine (idle only)
+  - **Notebook** while a **Cowork** session is working — Windows only, since
+    Cowork doesn't exist for Linux. The icon gently bobs so it still reads
+    as "busy", and the tooltip gains a "(Cowork)" tag. Detection: the
+    session's entrypoint matches `cowork_markers` from
+    `~/.claude/statusbar/config.json` (default `["cowork", "desktop"]`),
+    or the session wasn't launched from a terminal while the Claude desktop
+    app is running.
 - **Icon colour** — *Claude orange* or *System* (neutral ink; Clawd is
   converted with the upstream brightness→opacity mapping so the sprite keeps
   its depth, eyes punched out as negative space)

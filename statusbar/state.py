@@ -92,6 +92,29 @@ def read_sessions():
     return sessions
 
 
+def is_cowork(session, markers=("cowork", "desktop"), platform=None):
+    """Best-effort: was this session started by Cowork / the desktop app?
+
+    Windows only (Cowork does not exist for Linux). Primary signal: any of
+    the configured *markers* appearing in the session's entrypoint fields.
+    Fallback: the session was not launched from a terminal and the Claude
+    desktop app process is running.
+    """
+    if (platform or os.name) != "nt":
+        return False
+    hay = " ".join(
+        str(session.get(k, ""))
+        for k in ("entrypoint", "claude_entrypoint", "term_program")
+    ).lower()
+    if any(m and m.lower() in hay for m in markers):
+        return True
+    if session.get("launcher") == "app":
+        from . import procs
+
+        return procs.claude_desktop_running()
+    return False
+
+
 def _format_elapsed(ms):
     if not ms:
         return ""
@@ -117,6 +140,7 @@ def aggregate(sessions):
             "elapsed": "",
             "count": 0,
             "waiting": 0,
+            "cowork": False,
         }
 
     # Highest-priority state wins; ties broken by most recent activity.
@@ -130,10 +154,12 @@ def aggregate(sessions):
     state = headline.get("state", "idle")
     waiting = sum(1 for s in sessions if s.get("state") == "permission")
 
+    settings = config.load_settings()
     elapsed = ""
-    if state in ("thinking", "tool") and config.load_settings().get("show_timer", True):
+    if state in ("thinking", "tool") and settings.get("show_timer", True):
         elapsed = _format_elapsed(headline.get("startedAt"))
 
+    markers = settings.get("cowork_markers") or ("cowork", "desktop")
     return {
         "state": state,
         "label": headline.get("label", ""),
@@ -141,6 +167,7 @@ def aggregate(sessions):
         "elapsed": elapsed,
         "count": len(sessions),
         "waiting": waiting,
+        "cowork": is_cowork(headline, markers),
     }
 
 

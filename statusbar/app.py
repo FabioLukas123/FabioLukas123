@@ -12,7 +12,7 @@ import webbrowser
 import pystray
 from pystray import Menu, MenuItem
 
-from . import __version__, config, icons, sound, state
+from . import __version__, config, icons, procs, sound, state
 
 
 class StatusBarApp:
@@ -115,12 +115,17 @@ class StatusBarApp:
                         radio=True,
                     ),
                     MenuItem(
-                        "Clawd (skateboard)",
-                        self._set("idle_icon", "clawd-skateboard"),
-                        checked=self._is("idle_icon", "clawd-skateboard"),
+                        "Clawd (notebook)",
+                        self._set("idle_icon", "clawd-notebook"),
+                        checked=self._is("idle_icon", "clawd-notebook"),
                         radio=True,
                     ),
                 ),
+            ),
+            MenuItem(
+                "Auto poses (Spotify / Cowork)",
+                self._toggle("auto_poses"),
+                checked=lambda _i: self.settings.get("auto_poses", True),
             ),
             MenuItem(
                 "Icon colour",
@@ -248,10 +253,21 @@ class StatusBarApp:
                 else:
                     self._frame = 0
 
+                # Automatic poses: Clawd at the notebook while a Cowork
+                # session works (Windows), headphones while Spotify plays.
+                override = None
+                if self.settings.get("auto_poses", True):
+                    if status["state"] in ("thinking", "tool") and status.get("cowork"):
+                        override = "clawd-notebook"
+                    elif status["state"] == "idle" and procs.spotify_running():
+                        override = "clawd-headphones"
+
                 # Frames come from a cache, so identity tells us whether the
                 # image actually changed; skipping redundant assignments stops
                 # the tray from flickering while idle.
-                img = icons.for_state(status["state"], self._frame, self.settings)
+                img = icons.for_state(
+                    status["state"], self._frame, self.settings, override
+                )
                 if img is not self._last_img:
                     self.icon.icon = img
                     self._last_img = img
@@ -293,6 +309,8 @@ class StatusBarApp:
                 base = "{} · {}".format(base, status["elapsed"])
             if status["project"]:
                 base = "{} — {}".format(status["project"], base)
+            if status.get("cowork"):
+                base = "{} (Cowork)".format(base)
             return base
         if status["state"] == "done":
             return "Done — {}".format(status["project"]) if status["project"] else "Done"
