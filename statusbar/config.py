@@ -38,6 +38,9 @@ DEFAULT_SETTINGS = {
     "completion_sound": True,
     "animation": "spark",     # "spark" | "spinner" | "clawd"
     "color": "orange",        # "orange" | "system"
+    # resting icon: "logo" (Claude spark) or one of the Clawd poses
+    # ("clawd" | "clawd-sunglasses" | "clawd-headphones" | "clawd-skateboard")
+    "idle_icon": "logo",
 }
 
 

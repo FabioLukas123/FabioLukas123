@@ -7,7 +7,6 @@ tray) via pystray.
 """
 
 import threading
-import time
 import webbrowser
 
 import pystray
@@ -23,6 +22,9 @@ class StatusBarApp:
         self.status = state.aggregate([])
         self._frame = 0
         self._prev_state = "idle"
+        self._last_img = None
+        self._last_title = None
+        self._last_snapshot = None
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self.icon = pystray.Icon(
@@ -86,6 +88,41 @@ class StatusBarApp:
                 ),
             ),
             MenuItem(
+                "Idle icon",
+                Menu(
+                    MenuItem(
+                        "Claude logo",
+                        self._set("idle_icon", "logo"),
+                        checked=self._is("idle_icon", "logo"),
+                        radio=True,
+                    ),
+                    MenuItem(
+                        "Clawd",
+                        self._set("idle_icon", "clawd"),
+                        checked=self._is("idle_icon", "clawd"),
+                        radio=True,
+                    ),
+                    MenuItem(
+                        "Clawd (sunglasses)",
+                        self._set("idle_icon", "clawd-sunglasses"),
+                        checked=self._is("idle_icon", "clawd-sunglasses"),
+                        radio=True,
+                    ),
+                    MenuItem(
+                        "Clawd (headphones)",
+                        self._set("idle_icon", "clawd-headphones"),
+                        checked=self._is("idle_icon", "clawd-headphones"),
+                        radio=True,
+                    ),
+                    MenuItem(
+                        "Clawd (skateboard)",
+                        self._set("idle_icon", "clawd-skateboard"),
+                        checked=self._is("idle_icon", "clawd-skateboard"),
+                        radio=True,
+                    ),
+                ),
+            ),
+            MenuItem(
                 "Icon colour",
                 Menu(
                     MenuItem(
@@ -142,6 +179,17 @@ class StatusBarApp:
         return visible
 
     # -- menu actions ---------------------------------------------------------
+    def _set(self, key, value):
+        def handler(_icon=None, _item=None):
+            self.settings[key] = value
+            config.save_settings(self.settings)
+            self.icon.update_menu()
+        return handler
+
+    def _is(self, key, value):
+        default = config.DEFAULT_SETTINGS.get(key)
+        return lambda _i: self.settings.get(key, default) == value
+
     def _toggle(self, key):
         def handler(_icon=None, _item=None):
             self.settings[key] = not self.settings.get(key, True)
@@ -176,7 +224,6 @@ class StatusBarApp:
 
     # -- poll loop ------------------------------------------------------------
     def _poll_loop(self):
-        last_menu_refresh = 0.0
         while not self._stop.is_set():
             try:
                 sessions = state.read_sessions()
@@ -200,16 +247,37 @@ class StatusBarApp:
                     self._frame += 1
                 else:
                     self._frame = 0
-                self.icon.icon = icons.for_state(
-                    status["state"], self._frame, self.settings
-                )
-                self.icon.title = self._tooltip(status)
 
-                # Refresh the dropdown labels about once a second.
-                now = time.monotonic()
-                if now - last_menu_refresh > 1.0:
+                # Frames come from a cache, so identity tells us whether the
+                # image actually changed; skipping redundant assignments stops
+                # the tray from flickering while idle.
+                img = icons.for_state(status["state"], self._frame, self.settings)
+                if img is not self._last_img:
+                    self.icon.icon = img
+                    self._last_img = img
+                title = self._tooltip(status)
+                if title != self._last_title:
+                    self.icon.title = title
+                    self._last_title = title
+
+                # Rebuild the dropdown only when its content really changed.
+                # Unconditional periodic update_menu() dismisses/glitches an
+                # open menu on Windows and GTK, making items unclickable.
+                # Elapsed time is deliberately left out of the snapshot: item
+                # text is re-evaluated when the menu opens, so it is fresh at
+                # the moment the user looks at it.
+                snapshot = (
+                    status["state"], status["label"], status["project"],
+                    status["count"], status["waiting"],
+                    tuple(
+                        (s.get("sessionId"), s.get("state"),
+                         s.get("label"), s.get("project"))
+                        for s in sessions
+                    ),
+                )
+                if snapshot != self._last_snapshot:
                     self.icon.update_menu()
-                    last_menu_refresh = now
+                    self._last_snapshot = snapshot
             except Exception:
                 pass
             self._stop.wait(config.POLL_INTERVAL)

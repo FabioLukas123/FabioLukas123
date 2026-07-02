@@ -28,6 +28,14 @@ ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 SPARK_FRAME_COUNT = 8
 CLAWD_FRAME_COUNT = 20
 
+# Full-colour Clawd poses usable as the resting icon (settings["idle_icon"]).
+POSES = {
+    "clawd": "clawd/poses/clawd.png",
+    "clawd-sunglasses": "clawd/poses/clawd-sunglasses.png",
+    "clawd-headphones": "clawd/poses/clawd-headphones.png",
+    "clawd-skateboard": "clawd/poses/clawd-skateboard.png",
+}
+
 _cache = {}
 _files = {}
 
@@ -91,6 +99,14 @@ def _adaptive_clawd(src):
 def logo(color=config.CLAUDE_CORAL, size=config.ICON_SIZE):
     """The resting icon: the official Claude spark mark, tinted."""
     return _tint(_load("logo.png"), color, size)
+
+
+def pose(name, adaptive=False, size=config.ICON_SIZE):
+    """A full-colour Clawd pose; *adaptive* applies the system-ink mapping."""
+    img = _load(POSES[name])
+    if adaptive:
+        img = _adaptive_clawd(img)
+    return _square(img, size)
 
 
 def spark_frame(index, color=config.CLAUDE_CORAL, size=config.ICON_SIZE):
@@ -179,13 +195,14 @@ def for_state(state, frame=0, settings=None):
     system = settings.get("color") == "system"
     base_color = config.NEUTRAL_GREY if system else config.CLAUDE_CORAL
     anim = settings.get("animation", "spark")
+    idle_choice = settings.get("idle_icon", "logo")
 
     if state in ("thinking", "tool"):
         frame = frame % frame_count(settings)
     else:
         frame = 0
 
-    key = (state, frame, base_color, anim)
+    key = (state, frame, base_color, anim, idle_choice)
     if key in _cache:
         return _cache[key]
 
@@ -200,7 +217,9 @@ def for_state(state, frame=0, settings=None):
             img = spark_frame(frame, color=base_color)
     elif state == "done":
         img = done(base_color)
-    else:  # idle
+    elif idle_choice in POSES:  # idle, Clawd pose selected
+        img = pose(idle_choice, adaptive=system)
+    else:  # idle, Claude logo
         img = logo(base_color)
 
     _cache[key] = img

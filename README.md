@@ -129,6 +129,9 @@ Right-click the tray icon for a menu with live toggles (persisted to
 - **Completion sound** — the original completion chime when a turn finishes
 - **Animation** — *Claude Spark* (the claude.ai morphing spark),
   *Claude Code spinner*, or *Crab Walking* (Clawd pixel art)
+- **Idle icon** — the Claude logo or one of the Clawd poses:
+
+  ![Clawd poses: classic, sunglasses, headphones, skateboard](assets/poses.png)
 - **Icon colour** — *Claude orange* or *System* (neutral ink; Clawd is
   converted with the upstream brightness→opacity mapping so the sprite keeps
   its depth, eyes punched out as negative space)
@@ -184,7 +187,8 @@ statusbar/        the tray app
   config.py         paths, colours, persisted settings
   sound.py          plays the original completion.mp3 (with fallbacks)
   assets/           upstream assets: logo.png, spark/ (8 frames),
-                    clawd/ (20 frames), completion.mp3, app.png/.ico/.icns
+                    clawd/ (20 frames + poses/), completion.mp3,
+                    app.png/.ico/.icns
 install.py        merge hooks into ~/.claude/settings.json
 uninstall.py      remove them again
 packaging/        arch/ (PKGBUILD, systemd, desktop) and windows/ (ps1, vbs)
