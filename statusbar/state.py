@@ -142,6 +142,7 @@ def aggregate(sessions):
             "count": 0,
             "waiting": 0,
             "cowork": False,
+            "idle_ms": None,  # unknown / forever — treated as deep idle
         }
 
     # Highest-priority state wins; ties broken by most recent activity.
@@ -161,6 +162,10 @@ def aggregate(sessions):
         elapsed = _format_elapsed(headline.get("startedAt"))
 
     markers = settings.get("cowork_markers") or ("cowork", "desktop")
+    idle_ms = 0
+    if state == "idle":
+        last = max(s.get("ts", 0) for s in sessions)
+        idle_ms = max(0, _now_ms() - last) if last else None
     return {
         "state": state,
         "label": headline.get("label", ""),
@@ -170,6 +175,7 @@ def aggregate(sessions):
         "count": len(sessions),
         "waiting": waiting,
         "cowork": is_cowork(headline, markers),
+        "idle_ms": idle_ms,
     }
 
 

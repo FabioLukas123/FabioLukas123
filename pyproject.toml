@@ -29,4 +29,4 @@ packages = ["statusbar"]
 [tool.setuptools.package-data]
 statusbar = ["assets/*.png", "assets/*.ico", "assets/*.icns", "assets/*.mp3",
              "assets/spark/*.png", "assets/clawd/*.png",
-             "assets/clawd/poses/*.png"]
+             "assets/clawd/poses/*.png", "assets/codex/*.png"]

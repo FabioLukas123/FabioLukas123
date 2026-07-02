@@ -36,6 +36,7 @@ POSES = {
     "clawd-sunglasses": "clawd/poses/clawd-sunglasses.png",
     "clawd-headphones": "clawd/poses/clawd-headphones.png",
     "clawd-notebook": "clawd/poses/clawd-notebook.png",
+    "clawd-sleep": "clawd/poses/clawd-sleep.png",
 }
 
 _cache = {}
@@ -172,6 +173,37 @@ def done(color=config.CLAUDE_CORAL, size=config.ICON_SIZE):
          (bx + br * 0.5, by - br * 0.42)],
         fill=(255, 255, 255, 255), width=lw, joint="curve",
     )
+    return img
+
+
+# --- Codex companion icon ---------------------------------------------------
+
+CODEX_FRAME_COUNT = 3
+CODEX_INK = (235, 236, 240)  # light ink for the (usually dark) Windows tray
+
+
+def codex(state, frame=0, settings=None, size=config.ICON_SIZE):
+    """The Codex tray icon: '>_' at rest, '>.' '>..' '>...' while working.
+
+    The user-supplied glyphs are stored as alpha masks and tinted at render
+    time (light ink, or neutral grey in System colour mode).
+    """
+    settings = settings or config.DEFAULT_SETTINGS
+    color = (
+        config.NEUTRAL_GREY if settings.get("color") == "system" else CODEX_INK
+    )
+    if state == "working":
+        # step the dot sequence every 3rd poll tick (~0.6s per frame)
+        frame = (frame // 3) % CODEX_FRAME_COUNT
+        name = "codex/work_{}.png".format(frame + 1)
+    else:
+        frame = 0
+        name = "codex/idle.png"
+    key = ("codex", state, frame, color)
+    if key in _cache:
+        return _cache[key]
+    img = _tint(_load(name), color, size)
+    _cache[key] = img
     return img
 
 

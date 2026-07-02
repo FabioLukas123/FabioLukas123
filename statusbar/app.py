@@ -12,7 +12,7 @@ import webbrowser
 import pystray
 from pystray import Menu, MenuItem
 
-from . import __version__, config, icons, procs, sound, state, usage
+from . import __version__, codex, config, icons, procs, sound, state, usage
 
 
 class StatusBarApp:
@@ -33,6 +33,21 @@ class StatusBarApp:
             icon=icons.for_state("idle", settings=self.settings),
             title="Claude Status Bar",
             menu=self._build_menu(),
+        )
+        # Companion tray icon for OpenAI Codex CLI activity. Started lazily
+        # the first time codex is detected; hidden again when it exits.
+        self._codex_state = "off"
+        self._codex_frame = 0
+        self._codex_started = False
+        self._last_codex_img = None
+        self.codex_icon = pystray.Icon(
+            "codex-status",
+            icon=icons.codex("idle", settings=self.settings),
+            title="Codex",
+            menu=Menu(
+                MenuItem(self._codex_text, None, enabled=False),
+                MenuItem("Hide Codex icon", self._set("show_codex", False)),
+            ),
         )
 
     # -- menu -----------------------------------------------------------------
@@ -132,6 +147,12 @@ class StatusBarApp:
                         checked=self._is("idle_icon", "clawd-notebook"),
                         radio=True,
                     ),
+                    MenuItem(
+                        "Clawd (sleeping)",
+                        self._set("idle_icon", "clawd-sleep"),
+                        checked=self._is("idle_icon", "clawd-sleep"),
+                        radio=True,
+                    ),
                 ),
             ),
             MenuItem(
@@ -143,6 +164,11 @@ class StatusBarApp:
                 "Status badge",
                 self._toggle("status_badge"),
                 checked=lambda _i: self.settings.get("status_badge", True),
+            ),
+            MenuItem(
+                "Codex icon",
+                self._toggle("show_codex"),
+                checked=lambda _i: self.settings.get("show_codex", True),
             ),
             MenuItem(
                 "Icon colour",
@@ -183,6 +209,44 @@ class StatusBarApp:
         if s["state"] == "done":
             return "Done · {}".format(s["project"]) if s["project"] else "Done"
         return "Idle ({} session{})".format(s["count"], "" if s["count"] == 1 else "s")
+
+    def _codex_text(self, _item=None):
+        return "Codex — {}".format(
+            "working…" if self._codex_state == "working" else "idle")
+
+    def _update_codex(self):
+        """Drive the companion Codex icon from inside the poll loop."""
+        c_state = "off"
+        if self.settings.get("show_codex", True):
+            c_state = codex.status()
+        if c_state == "working":
+            self._codex_frame += 1
+        else:
+            self._codex_frame = 0
+
+        if c_state == "off":
+            if self._codex_started and self.codex_icon:
+                self.codex_icon.visible = False
+            self._codex_state = c_state
+            return
+        if not self._codex_started:
+            try:
+                self.codex_icon.run_detached()
+                self._codex_started = True
+            except Exception:
+                self.codex_icon = None  # backend can't do a second icon
+                self.settings["show_codex"] = False
+        if self.codex_icon:
+            img = icons.codex(c_state, self._codex_frame, self.settings)
+            if img is not self._last_codex_img:
+                self.codex_icon.icon = img
+                self._last_codex_img = img
+            if not self.codex_icon.visible:
+                self.codex_icon.visible = True
+            if c_state != self._codex_state:
+                self.codex_icon.title = self._codex_text()
+                self.codex_icon.update_menu()
+        self._codex_state = c_state
 
     def _usage_text(self, index):
         def text(_item=None):
@@ -256,6 +320,11 @@ class StatusBarApp:
 
     def _quit(self, _icon=None, _item=None):
         self._stop.set()
+        if self._codex_started and self.codex_icon:
+            try:
+                self.codex_icon.stop()
+            except Exception:
+                pass
         self.icon.stop()
 
     # -- poll loop ------------------------------------------------------------
@@ -286,13 +355,19 @@ class StatusBarApp:
                     self._frame = 0
 
                 # Automatic poses: Clawd at the notebook while a Cowork
-                # session works (Windows), headphones while Spotify plays.
+                # session works (Windows); asleep after an hour idle;
+                # headphones while Spotify plays.
                 override = None
                 if self.settings.get("auto_poses", True):
                     if status["state"] in ("thinking", "tool") and status.get("cowork"):
                         override = "clawd-notebook"
-                    elif status["state"] == "idle" and procs.spotify_running():
-                        override = "clawd-headphones"
+                    elif status["state"] == "idle":
+                        sleep_ms = self.settings.get("sleep_after_minutes", 60) * 60000
+                        idle_ms = status.get("idle_ms")
+                        if sleep_ms > 0 and (idle_ms is None or idle_ms >= sleep_ms):
+                            override = "clawd-sleep"
+                        elif procs.spotify_running():
+                            override = "clawd-headphones"
 
                 # Frames come from a cache, so identity tells us whether the
                 # image actually changed; skipping redundant assignments stops
@@ -314,6 +389,9 @@ class StatusBarApp:
                 lines = usage.menu_lines(self.settings)
                 with self._lock:
                     self._usage_lines = lines
+
+                # Companion Codex icon (left of Clawd in most trays).
+                self._update_codex()
 
                 # Rebuild the dropdown only when its content really changed.
                 # Unconditional periodic update_menu() dismisses/glitches an

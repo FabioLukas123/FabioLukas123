@@ -40,7 +40,7 @@ DEFAULT_SETTINGS = {
     "color": "orange",        # "orange" | "system"
     # resting icon: "logo" (Claude spark) or one of the Clawd poses
     # ("clawd" | "clawd-sunglasses" | "clawd-headphones" | "clawd-notebook")
-    "idle_icon": "logo",
+    "idle_icon": "clawd",
     # automatic poses: headphones while Spotify runs, notebook while a
     # Cowork session works (Windows only)
     "auto_poses": True,
@@ -52,6 +52,10 @@ DEFAULT_SETTINGS = {
     # usage-limit budgets in tokens; 0 = auto-calibrate from history
     "limit_5h_tokens": 0,
     "limit_week_tokens": 0,
+    # companion tray icon showing OpenAI Codex CLI activity
+    "show_codex": True,
+    # after this many minutes idle, Clawd falls asleep (0 disables)
+    "sleep_after_minutes": 60,
 }
 
 # old asset name -> current one (settings written by previous versions)

@@ -129,12 +129,15 @@ Right-click the tray icon for a menu with live toggles (persisted to
 - **Completion sound** — the original completion chime when a turn finishes
 - **Animation** — *Claude Spark* (the claude.ai morphing spark),
   *Claude Code spinner*, or *Crab Walking* (Clawd pixel art)
-- **Idle icon** — the Claude logo or one of the Clawd poses
-  (classic, sunglasses, headphones, notebook):
+- **Idle icon** — the classic Clawd (default) or the Claude logo, plus the
+  other Clawd poses (sunglasses, headphones, notebook, sleeping):
 
-  ![Clawd poses: classic, sunglasses, headphones, notebook](assets/poses.png)
-- **Auto poses** — when enabled (default), two poses appear automatically:
-  - **Headphones** while Spotify is running on the machine (idle only)
+  ![Clawd poses: classic, sunglasses, headphones, notebook, sleeping](assets/poses.png)
+- **Auto poses** — when enabled (default), poses appear automatically:
+  - **Sleeping** after Claude Code has been idle for over an hour
+    (`sleep_after_minutes` in config.json, 0 disables)
+  - **Headphones** while Spotify is running on the machine (idle only;
+    sleeping wins if both apply)
   - **Notebook** while a **Cowork** session is working — Windows only, since
     Cowork doesn't exist for Linux. The icon gently bobs so it still reads
     as "busy", and the tooltip gains a "(Cowork)" tag. Detection: the
@@ -142,6 +145,11 @@ Right-click the tray icon for a menu with live toggles (persisted to
     `~/.claude/statusbar/config.json` (default `["cowork", "desktop"]`),
     or the session wasn't launched from a terminal while the Claude desktop
     app is running.
+- **Codex icon** — a second tray icon for the OpenAI Codex CLI, shown while
+  a `codex` process is running (most trays place it left of Clawd; on
+  Windows you can drag to reorder). It shows `>_` at rest and animates
+  `>.` → `>..` → `>...` while Codex writes to its session logs
+  (`~/.codex/sessions`). Hide it via the "Codex icon" toggle.
 - **Status badge** — a small glyph beside the icon showing what Claude is
   doing: thought dots (thinking), a terminal (running a command), a pencil
   (editing/writing), a magnifier (reading/searching), a globe (web), a gear
@@ -217,6 +225,7 @@ statusbar/        the tray app
   icons.py          renders the original assets (logo, spark, Clawd) + badges
   usage.py          estimates 5h/weekly limit usage from local transcripts
   procs.py          psutil-free process detection (Spotify / Claude desktop)
+  codex.py          OpenAI Codex CLI activity detection (companion icon)
   config.py         paths, colours, persisted settings
   sound.py          plays the original completion.mp3 (with fallbacks)
   assets/           upstream assets: logo.png, spark/ (8 frames),
