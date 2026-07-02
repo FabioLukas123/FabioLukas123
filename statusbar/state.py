@@ -136,6 +136,7 @@ def aggregate(sessions):
         return {
             "state": "idle",
             "label": "",
+            "tool": "",
             "project": "",
             "elapsed": "",
             "count": 0,
@@ -163,6 +164,7 @@ def aggregate(sessions):
     return {
         "state": state,
         "label": headline.get("label", ""),
+        "tool": headline.get("tool", ""),
         "project": headline.get("project", ""),
         "elapsed": elapsed,
         "count": len(sessions),

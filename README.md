@@ -142,6 +142,27 @@ Right-click the tray icon for a menu with live toggles (persisted to
     `~/.claude/statusbar/config.json` (default `["cowork", "desktop"]`),
     or the session wasn't launched from a terminal while the Claude desktop
     app is running.
+- **Status badge** — a small glyph beside the icon showing what Claude is
+  doing: thought dots (thinking), a terminal (running a command), a pencil
+  (editing/writing), a magnifier (reading/searching), a globe (web), a gear
+  (other tools) and a blinking amber "!" while awaiting permission (the
+  resting icon stays visible under it; with the badge off, permission shows
+  the classic solid amber dot instead)
+- **Usage meters** — the top of the dropdown shows how much of each limit is
+  estimated to be used, as text bars:
+
+  ```
+  5h   ▮▮▮▮▮▮▮▯▯▯ 66% · reseta 01:00
+  7d   ▮▮▮▮▮▮▮▮▯▯ 87% (estimado)
+  ```
+
+  Anthropic exposes no local API for subscription limits, so this reads the
+  per-message token usage Claude Code writes to `~/.claude/projects/**.jsonl`
+  and reconstructs the 5-hour block and rolling 7-day window (same approach
+  as ccusage). Budgets are auto-calibrated to the largest block/week seen in
+  the last 60 days — accurate once you've hit the limit at least once — or
+  can be pinned in `~/.claude/statusbar/config.json` via `limit_5h_tokens` /
+  `limit_week_tokens`. Treat the percentages as estimates.
 - **Icon colour** — *Claude orange* or *System* (neutral ink; Clawd is
   converted with the upstream brightness→opacity mapping so the sprite keeps
   its depth, eyes punched out as negative space)
@@ -193,7 +214,9 @@ hooks/            Claude Code hooks (pure stdlib, never crash a session)
 statusbar/        the tray app
   app.py            pystray tray + poll loop + menu
   state.py          read & aggregate the per-session state files
-  icons.py          renders the original assets (logo, spark, Clawd)
+  icons.py          renders the original assets (logo, spark, Clawd) + badges
+  usage.py          estimates 5h/weekly limit usage from local transcripts
+  procs.py          psutil-free process detection (Spotify / Claude desktop)
   config.py         paths, colours, persisted settings
   sound.py          plays the original completion.mp3 (with fallbacks)
   assets/           upstream assets: logo.png, spark/ (8 frames),

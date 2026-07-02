@@ -47,6 +47,11 @@ DEFAULT_SETTINGS = {
     # substrings matched against a session's entrypoint fields to flag it as
     # a Cowork / desktop-app session
     "cowork_markers": ["cowork", "desktop"],
+    # small glyph beside the icon showing what Claude is doing
+    "status_badge": True,
+    # usage-limit budgets in tokens; 0 = auto-calibrate from history
+    "limit_5h_tokens": 0,
+    "limit_week_tokens": 0,
 }
 
 # old asset name -> current one (settings written by previous versions)

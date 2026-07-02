@@ -17,6 +17,7 @@ the upstream ``adaptiveCrabFrame`` brightness->opacity mapping so the sprite
 keeps its depth when drawn in a single ink colour. All frames are cached.
 """
 
+import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -127,8 +128,6 @@ def clawd_frame(index, adaptive=False, size=config.ICON_SIZE):
 
 def spinner_frame(index, color=config.CLAUDE_CORAL, size=config.ICON_SIZE):
     """Fallback drawn animation: a rotating ring of fading dots."""
-    import math
-
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     cx = cy = size / 2
@@ -186,6 +185,83 @@ def frame_count(settings):
     return SPARK_FRAME_COUNT
 
 
+# --- status badges ---------------------------------------------------------
+# Small glyph composited beside the icon telling what Claude is doing.
+
+def _badge_kind(state, tool):
+    if state == "permission":
+        return "perm"
+    if state == "thinking":
+        return "think"
+    if state == "tool":
+        return {
+            "Bash": "term",
+            "Edit": "pencil", "Write": "pencil",
+            "MultiEdit": "pencil", "NotebookEdit": "pencil",
+            "Read": "search", "Grep": "search", "Glob": "search", "LS": "search",
+            "WebFetch": "web", "WebSearch": "web",
+        }.get(tool or "", "gear")
+    return None
+
+
+def _draw_badge(base, kind, dim=False, size=config.ICON_SIZE):
+    """Composite the *kind* glyph onto the lower-right corner of *base*."""
+    img = base.copy()
+    d = ImageDraw.Draw(img)
+    r = size * 0.22                      # badge radius
+    cx, cy = size - r - 1, size - r - 1  # bottom-right corner
+    a = 140 if dim else 255
+    white, ink = (255, 255, 255, a), (60, 60, 66, a)
+    lw = max(2, int(size * 0.045))
+
+    if kind == "perm":
+        d.ellipse([cx - r, cy - r, cx + r, cy + r],
+                  fill=config.PERMISSION_AMBER + (a,), outline=ink, width=1)
+        d.line([(cx, cy - r * 0.55), (cx, cy + r * 0.15)], fill=ink, width=lw + 1)
+        dot = lw * 0.7
+        d.ellipse([cx - dot, cy + r * 0.4 - dot, cx + dot, cy + r * 0.4 + dot],
+                  fill=ink)
+        return img
+
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=white, outline=ink, width=1)
+    if kind == "think":
+        for i, k in enumerate((-0.45, 0.0, 0.45)):
+            dot = r * (0.14 + 0.02 * i)
+            d.ellipse([cx + k * r - dot, cy - dot, cx + k * r + dot, cy + dot],
+                      fill=ink)
+    elif kind == "term":
+        d.line([(cx - r * 0.5, cy - r * 0.35), (cx - r * 0.1, cy),
+                (cx - r * 0.5, cy + r * 0.35)], fill=ink, width=lw, joint="curve")
+        d.line([(cx + r * 0.05, cy + r * 0.4), (cx + r * 0.55, cy + r * 0.4)],
+               fill=ink, width=lw)
+    elif kind == "pencil":
+        d.line([(cx - r * 0.45, cy + r * 0.45), (cx + r * 0.3, cy - r * 0.3)],
+               fill=config.CLAUDE_CORAL + (a,), width=lw + 1)
+        d.polygon([(cx + r * 0.3, cy - r * 0.3), (cx + r * 0.55, cy - r * 0.55),
+                   (cx + r * 0.45, cy - r * 0.2)], fill=ink)
+    elif kind == "search":
+        gr = r * 0.4
+        gx, gy = cx - r * 0.12, cy - r * 0.12
+        d.ellipse([gx - gr, gy - gr, gx + gr, gy + gr], outline=ink, width=lw)
+        d.line([(gx + gr * 0.7, gy + gr * 0.7), (cx + r * 0.55, cy + r * 0.55)],
+               fill=ink, width=lw)
+    elif kind == "web":
+        gr = r * 0.55
+        d.ellipse([cx - gr, cy - gr, cx + gr, cy + gr], outline=ink, width=lw)
+        d.line([(cx - gr, cy), (cx + gr, cy)], fill=ink, width=max(1, lw - 1))
+        d.ellipse([cx - gr * 0.45, cy - gr, cx + gr * 0.45, cy + gr],
+                  outline=ink, width=max(1, lw - 1))
+    else:  # gear
+        gr = r * 0.32
+        d.ellipse([cx - gr, cy - gr, cx + gr, cy + gr], outline=ink, width=lw)
+        for i in range(6):
+            ang = i * math.pi / 3
+            x1, y1 = cx + gr * 1.1 * math.cos(ang), cy + gr * 1.1 * math.sin(ang)
+            x2, y2 = cx + r * 0.62 * math.cos(ang), cy + r * 0.62 * math.sin(ang)
+            d.line([(x1, y1), (x2, y2)], fill=ink, width=lw)
+    return img
+
+
 def _bob(img, offset, size=config.ICON_SIZE):
     """Shift *img* down by *offset* px — a subtle 'busy at the laptop' bob."""
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -193,13 +269,28 @@ def _bob(img, offset, size=config.ICON_SIZE):
     return canvas
 
 
-def for_state(state, frame=0, settings=None, override_pose=None):
+def _idle_image(settings, override_pose, system, base_color):
+    if override_pose:
+        return pose(override_pose, adaptive=system)
+    idle_choice = settings.get("idle_icon", "logo")
+    if idle_choice in POSES:
+        return pose(idle_choice, adaptive=system)
+    return logo(base_color)
+
+
+def for_state(state, frame=0, settings=None, override_pose=None, tool=None):
     """Return the icon image for an aggregate *state*.
 
     *frame* is an unbounded counter; each animation wraps it by its own
     length. *override_pose* (a POSES key) replaces the icon in idle and
     working states — used by the automatic poses (Spotify / Cowork). While
     working, the override gently bobs so the tray still reads as "busy".
+
+    With settings["status_badge"] on, a small glyph is drawn beside the icon
+    telling what Claude is doing: thought dots while thinking, a terminal for
+    Bash, a pencil for edits, a magnifier for reads/searches, a globe for the
+    web, a gear for other tools, and a blinking amber "!" while awaiting
+    permission (in which case the resting icon stays visible under it).
     Results are cached.
     """
     settings = settings or config.DEFAULT_SETTINGS
@@ -209,18 +300,31 @@ def for_state(state, frame=0, settings=None, override_pose=None):
     idle_choice = settings.get("idle_icon", "logo")
     if override_pose not in POSES or state not in ("idle", "thinking", "tool"):
         override_pose = None
+    badge = _badge_kind(state, tool) if settings.get("status_badge", True) else None
 
+    phase = 0
     if state in ("thinking", "tool"):
         # the bob has a 2-phase cycle, slowed to every 3rd poll tick
         frame = (frame // 3) % 2 if override_pose else frame % frame_count(settings)
+    elif state == "permission" and badge:
+        phase = (frame // 3) % 2  # blink the "!" badge
+        frame = 0
     else:
         frame = 0
 
-    key = (state, frame, base_color, anim, idle_choice, override_pose)
+    key = (state, frame, base_color, anim, idle_choice, override_pose,
+           badge, phase)
     if key in _cache:
         return _cache[key]
 
     if state == "permission":
+        if badge:
+            # keep Clawd/logo visible with a blinking amber "!" beside it
+            img = _draw_badge(
+                _idle_image(settings, None, system, base_color),
+                "perm", dim=bool(phase))
+            _cache[key] = img
+            return img
         img = permission()
     elif override_pose:
         img = pose(override_pose, adaptive=system)
@@ -235,10 +339,11 @@ def for_state(state, frame=0, settings=None, override_pose=None):
             img = spark_frame(frame, color=base_color)
     elif state == "done":
         img = done(base_color)
-    elif idle_choice in POSES:  # idle, Clawd pose selected
-        img = pose(idle_choice, adaptive=system)
-    else:  # idle, Claude logo
-        img = logo(base_color)
+    else:
+        img = _idle_image(settings, None, system, base_color)
+
+    if badge and state in ("thinking", "tool"):
+        img = _draw_badge(img, badge)
 
     _cache[key] = img
     return img

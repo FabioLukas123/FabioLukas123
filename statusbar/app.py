@@ -12,7 +12,7 @@ import webbrowser
 import pystray
 from pystray import Menu, MenuItem
 
-from . import __version__, config, icons, procs, sound, state
+from . import __version__, config, icons, procs, sound, state, usage
 
 
 class StatusBarApp:
@@ -25,6 +25,7 @@ class StatusBarApp:
         self._last_img = None
         self._last_title = None
         self._last_snapshot = None
+        self._usage_lines = []
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self.icon = pystray.Icon(
@@ -49,8 +50,19 @@ class StatusBarApp:
             for i in range(config.MAX_MENU_SESSIONS)
         ]
 
+        usage_items = [
+            MenuItem(
+                self._usage_text(i),
+                None,
+                enabled=False,
+                visible=self._usage_visible(i),
+            )
+            for i in range(2)
+        ]
+
         return Menu(
             MenuItem(self._headline_text, None, enabled=False),
+            *usage_items,
             Menu.SEPARATOR,
             *session_items,
             Menu.SEPARATOR,
@@ -128,6 +140,11 @@ class StatusBarApp:
                 checked=lambda _i: self.settings.get("auto_poses", True),
             ),
             MenuItem(
+                "Status badge",
+                self._toggle("status_badge"),
+                checked=lambda _i: self.settings.get("status_badge", True),
+            ),
+            MenuItem(
                 "Icon colour",
                 Menu(
                     MenuItem(
@@ -166,6 +183,20 @@ class StatusBarApp:
         if s["state"] == "done":
             return "Done · {}".format(s["project"]) if s["project"] else "Done"
         return "Idle ({} session{})".format(s["count"], "" if s["count"] == 1 else "s")
+
+    def _usage_text(self, index):
+        def text(_item=None):
+            with self._lock:
+                if index < len(self._usage_lines):
+                    return self._usage_lines[index]
+            return ""
+        return text
+
+    def _usage_visible(self, index):
+        def visible(_item=None):
+            with self._lock:
+                return index < len(self._usage_lines)
+        return visible
 
     def _session_text(self, index):
         def text(_item=None):
@@ -248,7 +279,8 @@ class StatusBarApp:
 
                 # Advance + render the icon. The counter is unbounded; each
                 # animation wraps it by its own frame count inside icons.
-                if status["state"] in ("thinking", "tool"):
+                # Permission also advances so its badge can blink.
+                if status["state"] in ("thinking", "tool", "permission"):
                     self._frame += 1
                 else:
                     self._frame = 0
@@ -266,7 +298,8 @@ class StatusBarApp:
                 # image actually changed; skipping redundant assignments stops
                 # the tray from flickering while idle.
                 img = icons.for_state(
-                    status["state"], self._frame, self.settings, override
+                    status["state"], self._frame, self.settings, override,
+                    tool=status.get("tool"),
                 )
                 if img is not self._last_img:
                     self.icon.icon = img
@@ -275,6 +308,12 @@ class StatusBarApp:
                 if title != self._last_title:
                     self.icon.title = title
                     self._last_title = title
+
+                # Usage-limit meters shown at the top of the dropdown
+                # (usage.snapshot caches internally, so this is cheap).
+                lines = usage.menu_lines(self.settings)
+                with self._lock:
+                    self._usage_lines = lines
 
                 # Rebuild the dropdown only when its content really changed.
                 # Unconditional periodic update_menu() dismisses/glitches an
@@ -285,6 +324,7 @@ class StatusBarApp:
                 snapshot = (
                     status["state"], status["label"], status["project"],
                     status["count"], status["waiting"],
+                    tuple(lines),
                     tuple(
                         (s.get("sessionId"), s.get("state"),
                          s.get("label"), s.get("project"))
