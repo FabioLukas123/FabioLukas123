@@ -100,6 +100,45 @@ Open a new Claude Code session and the tray will start reflecting its status.
 > Hooks are loaded when a Claude Code session starts, so restart any open
 > sessions (or run `/hooks` to confirm they're registered) after installing.
 
+### Waybar (Arch, no tray needed)
+
+Waybar's `tray` module hosts **every** StatusNotifierItem on the system
+(flameshot, bluetooth, …). If you only want the Claude status in your bar,
+skip the tray app entirely and use the built-in Waybar mode — it streams
+custom-module JSON and needs only the Python standard library:
+
+```jsonc
+// ~/.config/waybar/config.jsonc
+"modules-right": ["custom/claude", "custom/codex", /* your modules */],
+"custom/claude": {
+    "exec": "env PYTHONPATH=/path/to/claude-status-bar python3 -m statusbar --waybar",
+    "return-type": "json",
+    "format": "{text}",
+    "tooltip": true
+},
+"custom/codex": {
+    "exec": "env PYTHONPATH=/path/to/claude-status-bar python3 -m statusbar --waybar-codex",
+    "return-type": "json",
+    "format": "{text}"
+}
+```
+
+```css
+/* ~/.config/waybar/style.css */
+#custom-claude            { color: #d97757; }
+#custom-claude.permission { color: #f5c518; }
+#custom-claude.done       { color: #5fb878; }
+#custom-codex.working     { color: #d97757; }
+```
+
+You get Clawd as text glyphs — 🦀 idle, 🦀✳ working (+ action label and
+timer), 🦀⚠ permission, 🦀✔ done, 🦀💤 asleep, 🦀🎧 Spotify, and the Codex
+module shows `>_` / `>.` `>..` `>...`. The tooltip carries the usage bars
+and `{percentage}` is the estimated 5h-limit usage. All the automatic-pose
+logic and the completion sound work the same; you still run `install.py`
+once for the hooks. Waybar launches and supervises the process itself — no
+autostart needed, and don't run the tray app alongside it.
+
 ### Run it automatically at login
 
 **Arch Linux** (systemd user service + XDG autostart fallback):
@@ -226,6 +265,7 @@ statusbar/        the tray app
   usage.py          estimates 5h/weekly limit usage from local transcripts
   procs.py          psutil-free process detection (Spotify / Claude desktop)
   codex.py          OpenAI Codex CLI activity detection (companion icon)
+  waybar.py         Waybar custom-module JSON emitter (no tray, stdlib only)
   config.py         paths, colours, persisted settings
   sound.py          plays the original completion.mp3 (with fallbacks)
   assets/           upstream assets: logo.png, spark/ (8 frames),

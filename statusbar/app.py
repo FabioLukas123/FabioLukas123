@@ -12,7 +12,7 @@ import webbrowser
 import pystray
 from pystray import Menu, MenuItem
 
-from . import __version__, codex, config, icons, procs, sound, state, usage
+from . import __version__, codex, config, icons, sound, state, usage
 
 
 class StatusBarApp:
@@ -357,17 +357,7 @@ class StatusBarApp:
                 # Automatic poses: Clawd at the notebook while a Cowork
                 # session works (Windows); asleep after an hour idle;
                 # headphones while Spotify plays.
-                override = None
-                if self.settings.get("auto_poses", True):
-                    if status["state"] in ("thinking", "tool") and status.get("cowork"):
-                        override = "clawd-notebook"
-                    elif status["state"] == "idle":
-                        sleep_ms = self.settings.get("sleep_after_minutes", 60) * 60000
-                        idle_ms = status.get("idle_ms")
-                        if sleep_ms > 0 and (idle_ms is None or idle_ms >= sleep_ms):
-                            override = "clawd-sleep"
-                        elif procs.spotify_running():
-                            override = "clawd-headphones"
+                override = state.auto_pose(status, self.settings)
 
                 # Frames come from a cache, so identity tells us whether the
                 # image actually changed; skipping redundant assignments stops

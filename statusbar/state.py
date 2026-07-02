@@ -115,6 +115,29 @@ def is_cowork(session, markers=("cowork", "desktop"), platform=None):
     return False
 
 
+def auto_pose(status, settings):
+    """Which automatic Clawd pose applies to the aggregate *status*, if any.
+
+    Shared by the tray app and the Waybar module: notebook while a Cowork
+    session works, sleeping after a long idle stretch, headphones while
+    Spotify runs (sleep outranks headphones).
+    """
+    if not settings.get("auto_poses", True):
+        return None
+    if status["state"] in ("thinking", "tool") and status.get("cowork"):
+        return "clawd-notebook"
+    if status["state"] == "idle":
+        sleep_ms = settings.get("sleep_after_minutes", 60) * 60000
+        idle_ms = status.get("idle_ms")
+        if sleep_ms > 0 and (idle_ms is None or idle_ms >= sleep_ms):
+            return "clawd-sleep"
+        from . import procs
+
+        if procs.spotify_running():
+            return "clawd-headphones"
+    return None
+
+
 def _format_elapsed(ms):
     if not ms:
         return ""

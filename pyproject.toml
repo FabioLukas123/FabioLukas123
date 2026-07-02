@@ -22,6 +22,7 @@ Upstream = "https://github.com/m1ckc3s/claude-status-bar"
 
 [project.scripts]
 claude-status-bar = "statusbar.app:main"
+claude-status-waybar = "statusbar.waybar:main"
 
 [tool.setuptools]
 packages = ["statusbar"]
