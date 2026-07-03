@@ -86,6 +86,9 @@ def _show_gtk_menu():
 
     try:
         gi.require_version("Gtk", "3.0")
+        # pin Gdk too: with gtk4 installed, an unpinned Gdk import loads 4.0
+        # first and then Gtk 3.0 conflicts ("Requiring namespace 'Gdk' 3.0…")
+        gi.require_version("Gdk", "3.0")
         from gi.repository import Gdk, GLib, Gtk
         if have_layer_shell:
             from gi.repository import GtkLayerShell
