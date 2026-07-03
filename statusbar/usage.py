@@ -37,7 +37,11 @@ REFRESH_SECS = 60.0
 
 _file_cache = {}        # path -> (mtime, size, [(epoch, tokens), ...])
 _result_cache = {"at": 0.0, "data": None}
-_api_cache = {"at": 0.0, "data": None}
+_api_cache = {"at": 0.0, "data": None, "good_at": 0.0}
+
+# keep serving the last successful API answer through transient failures
+# (network blip, token mid-refresh) instead of flapping to anything else
+API_STALE_GRACE = 30 * 60
 
 
 # --- official API (what /status shows) --------------------------------------
@@ -79,10 +83,15 @@ def api_snapshot():
         return _api_cache["data"]
     _api_cache["at"] = now
 
+    def _fail():
+        # transient failure: keep the last good answer for a grace period
+        if now - _api_cache["good_at"] > API_STALE_GRACE:
+            _api_cache["data"] = None
+        return _api_cache["data"]
+
     token = _read_oauth_token()
     if not token:
-        _api_cache["data"] = None
-        return None
+        return _fail()
 
     try:
         ctx = ssl.create_default_context(
@@ -97,8 +106,7 @@ def api_snapshot():
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             payload = json.load(resp)
     except Exception:
-        _api_cache["data"] = None
-        return None
+        return _fail()
 
     windows = {}
 
@@ -115,8 +123,11 @@ def api_snapshot():
     if isinstance(payload, dict):
         for key, value in payload.items():
             add(key, value)
-    _api_cache["data"] = windows or None
-    return _api_cache["data"]
+    if windows:
+        _api_cache["data"] = windows
+        _api_cache["good_at"] = now
+        return windows
+    return _fail()
 
 
 def _parse_ts(ts):
@@ -311,46 +322,33 @@ _WINDOW_LABELS = [
 
 
 def block_percent(settings=None):
-    """Current 5h utilization (API when available, else estimate) or None."""
+    """Current 5h utilization from the official API only, or None."""
     windows = api_snapshot()
     if windows and "five_hour" in windows:
         return windows["five_hour"]["pct"]
-    data = snapshot(settings)
-    return data["block_pct"] if data else None
+    return None
 
 
 def menu_lines(settings=None):
-    """Ready-to-display usage strings — identical to /status when the
-    official API is reachable, transcript estimates otherwise."""
-    windows = api_snapshot()
-    if windows:
-        lines = []
-        for key, label, weekly in _WINDOW_LABELS:
-            w = windows.get(key)
-            if not w:
-                continue
-            lines.append("{} {} {:.0f}%{}".format(
-                label, bar(w["pct"]), w["pct"],
-                _fmt_reset(w.get("resets_at"), weekly)))
-        # any extra windows the API added that we don't know labels for
-        for key, w in windows.items():
-            if key not in {k for k, _, _ in _WINDOW_LABELS}:
-                lines.append("{} {} {:.0f}%".format(key, bar(w["pct"]), w["pct"]))
-        if lines:
-            return lines
+    """Ready-to-display usage strings — real /status numbers ONLY.
 
-    data = snapshot(settings)
-    if not data:
+    No transcript estimation is ever shown: when the API has no data (no
+    credentials / offline past the grace window) this returns [] and the
+    usage rows simply disappear instead of flapping to estimates.
+    """
+    windows = api_snapshot()
+    if not windows:
         return []
-    if data["block_pct"] is not None:
-        l1 = "5h   {} {:.0f}% · reseta {} (estimado)".format(
-            bar(data["block_pct"]), data["block_pct"], data["block_reset"])
-    else:
-        l1 = "5h   {} tokens · reseta {} (estimado)".format(
-            _fmt_tokens(data["block_tokens"]), data["block_reset"])
-    if data["week_pct"] is not None:
-        l2 = "7d   {} {:.0f}% (estimado)".format(
-            bar(data["week_pct"]), data["week_pct"])
-    else:
-        l2 = "7d   {} tokens (estimado)".format(_fmt_tokens(data["week_tokens"]))
-    return [l1, l2]
+    lines = []
+    for key, label, weekly in _WINDOW_LABELS:
+        w = windows.get(key)
+        if not w:
+            continue
+        lines.append("{} {} {:.0f}%{}".format(
+            label, bar(w["pct"]), w["pct"],
+            _fmt_reset(w.get("resets_at"), weekly)))
+    # any extra windows the API added that we don't know labels for
+    for key, w in windows.items():
+        if key not in {k for k, _, _ in _WINDOW_LABELS}:
+            lines.append("{} {} {:.0f}%".format(key, bar(w["pct"]), w["pct"]))
+    return lines

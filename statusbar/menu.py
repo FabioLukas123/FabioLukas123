@@ -53,15 +53,36 @@ def _headline(status):
 
 
 # --- native GTK dropdown (the "first model" menu) ---------------------------
+#
+# Positioning strategy: a Gtk.Menu popped from a 1x1 gtk-layer-shell window
+# anchored to the TOP-RIGHT of the screen — i.e. right where the Waybar
+# modules live — so the dropdown opens attached to the bar, deterministic on
+# Wayland. (Waybar itself links gtk-layer-shell, so the library is present on
+# every Waybar system.) Without layer-shell we fall back to the XWayland
+# pointer popup, and only then to the launcher list.
 
 def _show_gtk_menu():
-    # Position-at-pointer needs X11 semantics; XWayland provides them.
-    os.environ.setdefault("GDK_BACKEND", "x11")
     try:
         import gi
+    except Exception:
+        return False
 
+    have_layer_shell = False
+    if os.environ.get("WAYLAND_DISPLAY"):
+        try:
+            gi.require_version("GtkLayerShell", "0.1")
+            have_layer_shell = True
+            os.environ["GDK_BACKEND"] = "wayland"
+        except Exception:
+            os.environ.setdefault("GDK_BACKEND", "x11")
+    else:
+        os.environ.setdefault("GDK_BACKEND", "x11")
+
+    try:
         gi.require_version("Gtk", "3.0")
-        from gi.repository import Gtk
+        from gi.repository import Gdk, GLib, Gtk
+        if have_layer_shell:
+            from gi.repository import GtkLayerShell
     except Exception:
         return False
     if not Gtk.init_check([])[0]:
@@ -136,8 +157,35 @@ def _show_gtk_menu():
 
     menu.connect("deactivate", Gtk.main_quit)
     menu.show_all()
-    # NULL position func = classic "popup at pointer"
-    menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+
+    if have_layer_shell:
+        # invisible 1x1 anchor pinned to the top-right corner (the modules
+        # area); the menu drops from it like a real bar dropdown
+        anchor = Gtk.Window()
+        anchor.set_default_size(1, 1)
+        anchor.set_decorated(False)
+        anchor.set_opacity(0.0)
+        GtkLayerShell.init_for_window(anchor)
+        GtkLayerShell.set_layer(anchor, GtkLayerShell.Layer.OVERLAY)
+        GtkLayerShell.set_anchor(anchor, GtkLayerShell.Edge.TOP, True)
+        GtkLayerShell.set_anchor(anchor, GtkLayerShell.Edge.RIGHT, True)
+        GtkLayerShell.set_margin(anchor, GtkLayerShell.Edge.RIGHT, 8)
+
+        def popup(*_a):
+            menu.popup_at_widget(anchor.get_child() or anchor,
+                                 Gdk.Gravity.SOUTH_EAST,
+                                 Gdk.Gravity.NORTH_EAST, None)
+            return False
+
+        anchor.connect("map-event", lambda *_a: GLib.idle_add(popup))
+        menu.connect("deactivate", lambda *_a: anchor.destroy())
+        anchor.show_all()
+    else:
+        # X11 (XWayland) fallback: classic popup at pointer
+        menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+
+    # safety: never leave a stray process if the menu loses its grab
+    GLib.timeout_add_seconds(40, Gtk.main_quit)
     Gtk.main()
     return True
 

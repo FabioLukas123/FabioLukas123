@@ -172,11 +172,13 @@ with the usage meters in the tooltip.
 
 **Click actions** (wired automatically by the installer):
 
-- **Left-click** → the native tray-style dropdown at your cursor (a real
-  GTK context menu, same layout as the tray app: status headline, usage
-  meters, session lines, Animation / Idle icon submenus and toggles).
-  Needs `python-gobject` + `gtk3` and XWayland (default on Hyprland/Sway);
-  without GTK it falls back to a rofi/wofi/fuzzel/zenity list.
+- **Left-click** → the native tray-style dropdown, opening attached to the
+  top-right of the bar (anchored via gtk-layer-shell — the same library
+  Waybar uses — so positioning is exact on Wayland). Real GTK context menu,
+  same layout as the tray app: status headline, usage meters, session
+  lines, Animation / Idle icon submenus and toggles. Needs
+  `python-gobject` + `gtk3`; without GTK it falls back to a
+  rofi/wofi/fuzzel/zenity list.
 - **Right-click** → usage meters as a desktop notification (notify-send).
 
 Frames advance once per second (Waybar's `image` minimum interval). A
@@ -248,14 +250,12 @@ Right-click the tray icon for a menu with live toggles (persisted to
   Opus ▮▮▯▯▯▯▯▯▯▯ 18% · reseta 05/07 09:00
   ```
 
-  **These are the same numbers `/status` shows**: they come from the
-  official OAuth usage endpoint (`api.anthropic.com/api/oauth/usage`),
-  queried with the token Claude Code keeps in `~/.claude/.credentials.json`
-  and cached for 60s. When that's unavailable (no credentials, expired
-  token, offline), it falls back to estimating from the per-message token
-  usage in `~/.claude/projects/**.jsonl` (ccusage-style 5h blocks + rolling
-  7 days, budget auto-calibrated or pinned via `limit_5h_tokens` /
-  `limit_week_tokens`) — fallback lines are marked "(estimado)".
+  **These are the real numbers `/status` shows — and only them.** They come
+  from the official OAuth usage endpoint (`api.anthropic.com/api/oauth/usage`),
+  queried with the token Claude Code keeps in `~/.claude/.credentials.json`,
+  cached for 60s. On transient failures the last real answer keeps being
+  shown for up to 30 minutes; past that the rows simply disappear until the
+  API responds again. **No estimation is ever displayed.**
 - **Icon colour** — *Claude orange* or *System* (neutral ink; Clawd is
   converted with the upstream brightness→opacity mapping so the sprite keeps
   its depth, eyes punched out as negative space)
