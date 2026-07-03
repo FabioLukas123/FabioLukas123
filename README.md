@@ -77,9 +77,26 @@ so no console window appears; the provided launchers do this for you.)
 
 ## Install
 
+**One command (Linux):**
+
 ```bash
 git clone https://github.com/fabiolukas123/fabiolukas123.git claude-status-bar
 cd claude-status-bar
+bash setup.sh
+```
+
+`setup.sh` registers the hooks and then configures everything for your
+environment automatically:
+
+- **Waybar detected** → injects the `custom/claude` + `custom/codex` modules
+  into your Waybar config (backup kept), removes the unwanted `tray` module,
+  applies the style block and reloads Waybar. No tray app, no pystray/Pillow.
+- **Otherwise** → installs the tray dependencies and enables autostart.
+
+<details>
+<summary>Manual install (tray app)</summary>
+
+```bash
 pip install -r requirements.txt      # pystray + Pillow
 python install.py                    # wires the hooks into ~/.claude/settings.json
 ```
@@ -100,7 +117,12 @@ Open a new Claude Code session and the tray will start reflecting its status.
 > Hooks are loaded when a Claude Code session starts, so restart any open
 > sessions (or run `/hooks` to confirm they're registered) after installing.
 
+</details>
+
 ### Waybar (Arch, no tray needed)
+
+**`bash setup.sh` does all of this automatically** — the snippets below are
+the reference for what it writes, if you prefer to do it by hand.
 
 Waybar's `tray` module hosts **every** StatusNotifierItem on the system
 (flameshot, bluetooth, …). If you only want the Claude status in your bar,
