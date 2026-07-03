@@ -32,9 +32,29 @@ if (!["install", "update", "setup"].includes(cmd)) {
   process.exit(2);
 }
 
+const REMOTE = "https://github.com/FabioLukas123/FabioLukas123.git";
+const BRANCH = "claude/status-bar-arch-windows-lwat6h";
+
+function tryRun(program, args) {
+  const r = spawnSync(program, args, { cwd: repo, stdio: "pipe" });
+  return r.status === 0;
+}
+
 if (cmd === "update") {
-  console.log("==> git pull...");
-  run("git", ["pull", "--ff-only"]);
+  if (tryRun("git", ["rev-parse", "--is-inside-work-tree"])) {
+    console.log("==> git pull...");
+    run("git", ["pull", "--ff-only"]);
+  } else {
+    // Folder came from a GitHub ZIP download (no .git). Convert it into a
+    // real clone in place, then updates work forever after.
+    console.log("==> pasta veio de um ZIP (sem .git); convertendo em clone git...");
+    run("git", ["init", "-b", BRANCH]);
+    tryRun("git", ["remote", "remove", "origin"]);
+    run("git", ["remote", "add", "origin", REMOTE]);
+    run("git", ["fetch", "origin", BRANCH]);
+    run("git", ["checkout", "-f", "-B", BRANCH, "--track", "origin/" + BRANCH]);
+    console.log("✓ agora é um repositório git normal.");
+  }
 }
 
 if (process.platform === "win32") {
