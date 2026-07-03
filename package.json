@@ -1,0 +1,19 @@
+{
+  "name": "claude-status-bar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Status do Claude Code na Waybar (Arch) e bandeja (Windows), com o Clawd",
+  "bin": {
+    "claude-status-bar": "scripts/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/cli.js install",
+    "setup": "node scripts/cli.js install",
+    "update": "node scripts/cli.js update"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fabiolukas123/fabiolukas123.git"
+  },
+  "license": "MIT"
+}

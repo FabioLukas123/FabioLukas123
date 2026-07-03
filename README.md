@@ -17,10 +17,10 @@ resting icon, the claude.ai thinking-spark morphing animation, the pixel-art
 
 | State | Icon | Meaning |
 |-------|------|---------|
-| Idle | Claude spark logo | No active work — Claude is at rest |
+| Idle | Clawd (or Claude logo) | No active work — Claude is at rest |
 | Working | animated spark / spinner / Clawd + timer | Claude is thinking or running a tool (shows elapsed time and the current action: *Editing*, *Reading*, *Running command*, …) |
-| Awaiting permission | amber dot | Claude needs you to approve something |
-| Done | logo + green check (chime) | The turn finished, then returns to idle |
+| Awaiting permission | blinking amber "!" | Claude is blocked on an approval (plain "waiting for your next message" does **not** trigger this) |
+| Done | Clawd + green check (chime) | The turn finished, then returns to idle |
 
 It aggregates status across **multiple simultaneous Claude Code sessions** and
 prioritises any session waiting on your input.
@@ -77,13 +77,21 @@ so no console window appears; the provided launchers do this for you.)
 
 ## Install
 
-**One command (Linux):**
+**One command:**
 
 ```bash
 git clone https://github.com/fabiolukas123/fabiolukas123.git claude-status-bar
 cd claude-status-bar
-bash setup.sh
+npm install        # roda o setup completo (Linux: Waybar/tray · Windows: bandeja)
 ```
+
+To update later:
+
+```bash
+npm run update     # git pull + setup de novo
+```
+
+(`bash setup.sh` does the same on Linux without npm.)
 
 `setup.sh` registers the hooks and then configures everything for your
 environment automatically:
@@ -155,14 +163,24 @@ library:
 
 `image#claude` shows the actual icons — Clawd at rest / asleep / with
 headphones, the walking (or spark/spinner) animation while working, the
-blinking permission badge, the done check. `image#codex` shows `>_` and the
-animated `>.` `>..` `>...` (a transparent placeholder while Codex is off;
-set `waybar_codex_ink: "dark"` in config.json for light bars). The text
-module adds the action label, timer and permission notice, with the usage
-meters in the tooltip. Frames advance once per second (Waybar's `image`
-minimum interval). A pure-text fallback (`--waybar-codex` stream) still
-exists if you prefer no images. You still run `install.py` once for the
-hooks; Waybar supervises the processes itself — no autostart, no tray app.
+blinking permission badge, Clawd with the green check when done — and
+**hides itself when no terminal is running Claude**, exactly like the Codex
+module does when Codex is off. `image#codex` shows `>_` and the animated
+`>.` `>..` `>...` (set `waybar_codex_ink: "dark"` in config.json for light
+bars). The text module adds the action label, timer and permission notice,
+with the usage meters in the tooltip.
+
+**Click actions** (wired automatically by the installer):
+
+- **Left-click** → settings menu via rofi / wofi / fuzzel / zenity
+  (whichever is installed): usage meters at the top, then animation, idle
+  icon and toggles — selections persist to config.json and the bar picks
+  them up on the next tick.
+- **Right-click** → usage meters as a desktop notification (notify-send).
+
+Frames advance once per second (Waybar's `image` minimum interval). A
+pure-text fallback (`--waybar-codex` stream) still exists if you prefer no
+images. Waybar supervises the processes itself — no autostart, no tray app.
 
 ### Run it automatically at login
 

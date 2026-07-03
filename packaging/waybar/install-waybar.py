@@ -49,6 +49,8 @@ MODULES = {
         "exec": _exec("--waybar-icon"),
         "size": 22,
         "interval": 1,
+        "on-click": _exec("--menu"),
+        "on-click-right": _exec("--usage-notify"),
     },
     "custom/claude": {
         "exec": _exec("--waybar"),
@@ -56,6 +58,8 @@ MODULES = {
         "format": "{text}",
         "tooltip": True,
         "restart-interval": 5,
+        "on-click": _exec("--menu"),
+        "on-click-right": _exec("--usage-notify"),
     },
 }
 PLACEMENT = ["image#codex", "image#claude", "custom/claude"]

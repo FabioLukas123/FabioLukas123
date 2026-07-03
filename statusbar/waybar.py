@@ -176,7 +176,10 @@ def icon_claude_once():
     sec = int(time.time())
     st = status["state"]
 
-    if st == "permission":
+    if status["count"] == 0:
+        # no terminal is running Claude -> hide, just like Codex when off
+        _icon("off", fallback="off")
+    elif st == "permission":
         _icon("claude_permission_{}".format(sec % 2))
     elif st in ("thinking", "tool"):
         if override == "clawd-notebook":

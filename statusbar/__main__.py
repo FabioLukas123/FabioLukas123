@@ -10,7 +10,15 @@ import sys
 
 def main():
     args = sys.argv[1:]
-    if "--waybar-icon-codex" in args:
+    if "--menu" in args:
+        from .menu import show
+
+        show()
+    elif "--usage-notify" in args:
+        from .menu import notify
+
+        notify()
+    elif "--waybar-icon-codex" in args:
         from .waybar import icon_codex_once
 
         icon_codex_once()

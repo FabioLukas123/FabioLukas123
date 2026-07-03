@@ -158,22 +158,12 @@ def permission(size=config.ICON_SIZE, color=config.PERMISSION_AMBER):
     return img
 
 
-def done(color=config.CLAUDE_CORAL, size=config.ICON_SIZE):
-    """The spark logo with a green check badge to signal completion."""
-    img = logo(color, size).copy()
-    d = ImageDraw.Draw(img)
-    bx, by = size * 0.70, size * 0.70
-    br = size * 0.26
-    d.ellipse([bx - br, by - br, bx + br, by + br],
-              fill=config.DONE_GREEN + (255,))
-    lw = max(2, int(size * 0.06))
-    d.line(
-        [(bx - br * 0.45, by + br * 0.02),
-         (bx - br * 0.08, by + br * 0.40),
-         (bx + br * 0.5, by - br * 0.42)],
-        fill=(255, 255, 255, 255), width=lw, joint="curve",
-    )
-    return img
+def done(color=config.CLAUDE_CORAL, size=config.ICON_SIZE, adaptive=False):
+    """Completion icon: Clawd with the green check (user-provided artwork)."""
+    img = _load("clawd/poses/clawd-check.png")
+    if adaptive:
+        img = _adaptive_clawd(img)
+    return _square(img, size)
 
 
 # --- Codex companion icon ---------------------------------------------------
@@ -370,7 +360,7 @@ def for_state(state, frame=0, settings=None, override_pose=None, tool=None):
         else:
             img = spark_frame(frame, color=base_color)
     elif state == "done":
-        img = done(base_color)
+        img = done(base_color, adaptive=system)
     else:
         img = _idle_image(settings, None, system, base_color)
 

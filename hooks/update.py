@@ -26,10 +26,21 @@ from _common import (  # noqa: E402
 )
 
 
-def _is_permission_notification(event):
-    """Heuristic: does this Notification represent a pending permission?"""
+def _notification_kind(event):
+    """Classify a Notification event.
+
+    "permission"  -> Claude is blocked on an approval (show the alert)
+    "awaiting"    -> Claude finished and is just waiting for the next
+                     message ("waiting for your input" fires ~60s idle);
+                     this is NOT a permission and must not raise the alert
+    "other"       -> anything else (refresh metadata only)
+    """
     text = (event.get("message") or event.get("notification") or "").lower()
-    return "permission" in text or "approve" in text or "waiting for your input" in text
+    if "permission" in text or "approve" in text or "authoriz" in text:
+        return "permission"
+    if "waiting for your input" in text or "waiting for input" in text:
+        return "awaiting"
+    return "other"
 
 
 def main():
@@ -74,12 +85,26 @@ def main():
             **common,
         )
 
-    elif action == "permreq" or (action == "notify" and _is_permission_notification(event)):
+    elif action == "permreq" or (
+        action == "notify" and _notification_kind(event) == "permission"
+    ):
         write_state(
             session_id,
             state="permission",
             label="Awaiting permission",
             tool="",
+            **common,
+        )
+
+    elif action == "notify" and _notification_kind(event) == "awaiting":
+        # Claude finished its turn and is just waiting for the next message —
+        # plain idle, NOT a permission alert.
+        write_state(
+            session_id,
+            state="idle",
+            label="",
+            tool="",
+            started=False,
             **common,
         )
 
