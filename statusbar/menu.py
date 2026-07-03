@@ -239,7 +239,20 @@ def _panel_menu(Gtk, Gdk, GLib, GtkLayerShell, settings, sessions, status):
     GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.TOP, True)
     GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.RIGHT, True)
     GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, 6)
-    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, 6)
+
+    # open right below the Claude/Codex modules: the click position IS the
+    # module position, so use the cursor x (hyprctl) to set the right margin
+    margin_right = int(settings.get("menu_margin_right", 6) or 6)
+    try:
+        out = subprocess.check_output(["hyprctl", "cursorpos"],
+                                      text=True, timeout=1)
+        cx, cy = (int(v.strip()) for v in out.split(","))
+        display = Gdk.Display.get_default()
+        mon = display.get_monitor_at_point(cx, cy).get_geometry()
+        margin_right = max(6, mon.x + mon.width - cx - 130)
+    except Exception:
+        pass
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, margin_right)
     try:
         GtkLayerShell.set_keyboard_mode(
             win, GtkLayerShell.KeyboardMode.ON_DEMAND)
@@ -274,8 +287,10 @@ def _panel_menu(Gtk, Gdk, GLib, GtkLayerShell, settings, sessions, status):
         ctx.add_class("menurow")
         if info or action is None:
             ctx.add_class("info")
-        if action is not None:
-            ev.connect("button-press-event", lambda *_a: (action(), True)[1])
+        # every row responds: option rows apply+close, info rows just close —
+        # the menu only ever leaves the screen on a click inside it (or Esc)
+        act = action or quit_all
+        ev.connect("button-press-event", lambda *_a: (act(), True)[1])
         box.pack_start(ev, False, False, 0)
 
     def add_sep():
@@ -321,11 +336,13 @@ def _panel_menu(Gtk, Gdk, GLib, GtkLayerShell, settings, sessions, status):
     add_sep()
     add_row("Claude Status Bar v{}".format(__version__), info=True)
 
-    win.connect("focus-out-event", quit_all)
+    # no focus-out close: it fired the instant the panel mapped (focus stays
+    # with the bar), killing the menu immediately. It closes only on a click
+    # inside it, a second click on the icon, Esc, or the safety timeout.
     win.connect("key-press-event",
                 lambda _w, e: quit_all() if e.keyval == Gdk.KEY_Escape else None)
     win.connect("destroy", quit_all)
-    GLib.timeout_add_seconds(30, quit_all)
+    GLib.timeout_add_seconds(60, quit_all)
     win.show_all()
     Gtk.main()
     return True, ""
