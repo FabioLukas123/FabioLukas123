@@ -20,22 +20,14 @@ echo "==> Registrando hooks do Claude Code..."
 
 WAYBAR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/waybar"
 if [[ -d "${WAYBAR_DIR}" ]] || command -v waybar >/dev/null 2>&1; then
-  echo "==> Waybar detectada — restaurando o app de bandeja original (módulo tray)..."
-  "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py" --restore-tray
-
-  # dependências do app de bandeja no python do sistema
-  SYS_PY="/usr/bin/python3"; [[ -x "${SYS_PY}" ]] || SYS_PY="${PYTHON}"
+  echo "==> Waybar detectada — módulos próprios (sem tray, sem ícones de outros apps)..."
+  "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py"
+  # menu nativo do clique: bindings GTK no python do sistema
   if command -v pacman >/dev/null 2>&1; then
-    sudo pacman -S --needed --noconfirm \
-      python-pillow python-gobject gtk3 libayatana-appindicator || true
+    sudo pacman -S --needed --noconfirm python-gobject gtk3 gtk-layer-shell || true
   fi
-  "${SYS_PY}" -c "import pystray" >/dev/null 2>&1 || \
-    "${SYS_PY}" -m pip install --user --quiet --break-system-packages pystray 2>/dev/null || \
-    "${SYS_PY}" -m pip install --user --quiet pystray || true
-
-  bash "${REPO_DIR}/packaging/arch/install-autostart.sh"
   echo
-  echo "Tudo pronto. O ícone do Claude aparece no tray da Waybar com o menu padrão."
+  echo "Tudo pronto. Clique no 🦀 abre o menu; clique direito mostra o uso."
   exit 0
 fi
 
