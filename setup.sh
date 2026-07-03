@@ -22,6 +22,9 @@ WAYBAR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/waybar"
 if [[ -d "${WAYBAR_DIR}" ]] || command -v waybar >/dev/null 2>&1; then
   echo "==> Waybar detectada — configurando módulos (sem tray)..."
   "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py"
+  if ! "${PYTHON}" -c "import gi" >/dev/null 2>&1; then
+    echo "! Para o menu nativo ao clicar no ícone, instale: sudo pacman -S python-gobject gtk3"
+  fi
   echo
   echo "Tudo pronto. Abra uma sessão nova do Claude Code e o 🦀 aparece na barra."
   exit 0

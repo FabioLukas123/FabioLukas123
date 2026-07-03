@@ -172,10 +172,11 @@ with the usage meters in the tooltip.
 
 **Click actions** (wired automatically by the installer):
 
-- **Left-click** → settings menu via rofi / wofi / fuzzel / zenity
-  (whichever is installed): usage meters at the top, then animation, idle
-  icon and toggles — selections persist to config.json and the bar picks
-  them up on the next tick.
+- **Left-click** → the native tray-style dropdown at your cursor (a real
+  GTK context menu, same layout as the tray app: status headline, usage
+  meters, session lines, Animation / Idle icon submenus and toggles).
+  Needs `python-gobject` + `gtk3` and XWayland (default on Hyprland/Sway);
+  without GTK it falls back to a rofi/wofi/fuzzel/zenity list.
 - **Right-click** → usage meters as a desktop notification (notify-send).
 
 Frames advance once per second (Waybar's `image` minimum interval). A
