@@ -22,16 +22,26 @@ WAYBAR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/waybar"
 if [[ -d "${WAYBAR_DIR}" ]] || command -v waybar >/dev/null 2>&1; then
   echo "==> Waybar detectada — configurando módulos (sem tray)..."
   "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py"
-  # o menu nativo de clique precisa dos bindings GTK; instala se faltar
-  if ! "${PYTHON}" -c "import gi" >/dev/null 2>&1; then
+  # O menu nativo precisa dos bindings GTK NO PYTHON DO SISTEMA (o pacman só
+  # instala lá; pyenv/conda/venv não os enxergam).
+  GTK_PY="/usr/bin/python3"; [[ -x "${GTK_PY}" ]] || GTK_PY="${PYTHON}"
+  MISSING=""
+  "${GTK_PY}" -c "import gi" >/dev/null 2>&1 || MISSING="python-gobject gtk3 gtk-layer-shell"
+  if [[ -z "${MISSING}" ]]; then
+    "${GTK_PY}" -c "import gi; gi.require_version('GtkLayerShell','0.1')" >/dev/null 2>&1 || \
+      MISSING="gtk-layer-shell"
+  fi
+  if [[ -n "${MISSING}" ]]; then
     if command -v pacman >/dev/null 2>&1; then
-      echo "==> Instalando dependências do menu nativo (python-gobject gtk3 gtk-layer-shell)..."
-      sudo pacman -S --needed --noconfirm python-gobject gtk3 gtk-layer-shell || \
-        echo "! Não consegui instalar via pacman; o menu de clique ficará indisponível até instalar python-gobject."
+      echo "==> Instalando dependências do menu nativo (${MISSING})..."
+      sudo pacman -S --needed --noconfirm ${MISSING} || \
+        echo "! pacman falhou; diagnóstico: ${GTK_PY} -m statusbar --menu-debug"
     else
-      echo "! Instale python-gobject + gtk3 + gtk-layer-shell pela sua distro para o menu de clique."
+      echo "! Instale pela sua distro: ${MISSING}"
     fi
   fi
+  echo "==> Diagnóstico do menu:"
+  PYTHONPATH="${REPO_DIR}" "${GTK_PY}" -m statusbar --menu-debug 2>&1 | sed 's/^/    /' || true
   echo
   echo "Tudo pronto. Abra uma sessão nova do Claude Code e o 🦀 aparece na barra."
   exit 0

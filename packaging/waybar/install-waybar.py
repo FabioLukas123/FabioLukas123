@@ -30,7 +30,10 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PY = sys.executable or "python3"
+# Prefer the SYSTEM python: pacman installs the GTK bindings (python-gobject)
+# only there, and a pyenv/conda/venv interpreter would never see them.
+PY = "/usr/bin/python3" if os.path.exists("/usr/bin/python3") else (
+    sys.executable or "python3")
 
 def _exec(flag):
     return 'env PYTHONPATH={repo} {py} -m statusbar {flag}'.format(

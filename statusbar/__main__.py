@@ -10,7 +10,11 @@ import sys
 
 def main():
     args = sys.argv[1:]
-    if "--menu" in args:
+    if "--menu-debug" in args:
+        from .menu import debug
+
+        debug()
+    elif "--menu" in args:
         from .menu import show
 
         show()

@@ -18,8 +18,13 @@ pickers/stream reread it on their next tick, so the bar updates immediately.
 import os
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 from . import __version__, config, state, usage
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SYSTEM_PY = "/usr/bin/python3"
 
 ANIMATIONS = [("spark", "Claude Spark"), ("spinner", "Claude Code spinner"),
               ("clawd", "Crab Walking (Clawd)")]
@@ -62,10 +67,11 @@ def _headline(status):
 # pointer popup, and only then to the launcher list.
 
 def _show_gtk_menu():
+    """Returns (ok, reason). *reason* names the exact failing step."""
     try:
         import gi
     except Exception:
-        return False
+        return False, "python-gobject ausente em {}".format(sys.executable)
 
     have_layer_shell = False
     if os.environ.get("WAYLAND_DISPLAY"):
@@ -83,10 +89,11 @@ def _show_gtk_menu():
         from gi.repository import Gdk, GLib, Gtk
         if have_layer_shell:
             from gi.repository import GtkLayerShell
-    except Exception:
-        return False
+    except Exception as exc:
+        return False, "bindings GTK3 indisponíveis ({})".format(exc)
     if not Gtk.init_check([])[0]:
-        return False
+        return False, "display não inicializou (GDK_BACKEND={}, sem gtk-layer-shell={})".format(
+            os.environ.get("GDK_BACKEND"), not have_layer_shell)
 
     # the original dropdown was dark; never render a white menu
     gtk_settings = Gtk.Settings.get_default()
@@ -192,21 +199,64 @@ def _show_gtk_menu():
     # safety: never leave a stray process if the menu loses its grab
     GLib.timeout_add_seconds(40, Gtk.main_quit)
     Gtk.main()
-    return True
+    return True, ""
 
 
 def show():
     """Native GTK dropdown only — there is deliberately no launcher-window
-    fallback. If GTK bindings are missing, say so via notification instead
-    of ever opening some other UI."""
-    if _show_gtk_menu():
+    fallback. On failure it retries with the SYSTEM python (where pacman
+    puts python-gobject; pyenv/conda interpreters never see it) and, if it
+    still fails, notifies the exact reason instead of opening another UI."""
+    ok, reason = _show_gtk_menu()
+    if ok:
         return
+
+    # bindings missing under this interpreter? re-exec with the system one
+    if (
+        "python-gobject" in reason
+        and not os.environ.get("CSB_MENU_REEXEC")
+        and os.path.exists(SYSTEM_PY)
+        and os.path.realpath(SYSTEM_PY) != os.path.realpath(sys.executable or "")
+    ):
+        env = dict(os.environ, CSB_MENU_REEXEC="1", PYTHONPATH=str(REPO_ROOT))
+        subprocess.run([SYSTEM_PY, "-m", "statusbar", "--menu"],
+                       env=env, check=False)
+        return
+
     if shutil.which("notify-send"):
         subprocess.run(
             ["notify-send", "-a", "Claude Status Bar", "Menu indisponível",
-             "Rode `npm run update` para instalar o menu nativo "
-             "(python-gobject / gtk3)."],
+             "Motivo: {}\nDiagnóstico: python3 -m statusbar --menu-debug".format(
+                 reason)],
             check=False)
+
+
+def debug():
+    """Print step-by-step diagnostics for the click menu."""
+    print("interpretador:", sys.executable)
+    print("repo:", REPO_ROOT)
+    for var in ("WAYLAND_DISPLAY", "DISPLAY", "GDK_BACKEND", "XDG_SESSION_TYPE"):
+        print("{}={}".format(var, os.environ.get(var)))
+    try:
+        import gi
+        print("gi OK:", gi.__file__)
+    except Exception as exc:
+        print("gi FALHOU:", exc)
+        if os.path.exists(SYSTEM_PY):
+            print("-> teste com o python do sistema:",
+                  "{} -m statusbar --menu-debug".format(SYSTEM_PY))
+        return
+    for name, ver in (("Gtk", "3.0"), ("GtkLayerShell", "0.1")):
+        try:
+            gi.require_version(name, ver)
+            print("{} {} OK".format(name, ver))
+        except Exception as exc:
+            print("{} FALHOU: {}".format(name, exc))
+    try:
+        from gi.repository import Gtk
+        print("Gtk.init_check:", Gtk.init_check([])[0])
+    except Exception as exc:
+        print("Gtk import/init FALHOU:", exc)
 
 
 def notify():
