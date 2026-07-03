@@ -27,9 +27,17 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from . import config
+
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"
+# Claude Code's public OAuth client id (same one the CLI itself uses)
+OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+DISK_CACHE = config.STATUSBAR_DIR / "usage.json"
+DISK_FRESH = 90          # menu trusts the stream-written cache this long
+HTTP_TIMEOUT = 6
 
 BLOCK_HOURS = 5
 SCAN_DAYS = 60          # history window for calibration
@@ -46,8 +54,48 @@ API_STALE_GRACE = 30 * 60
 
 # --- official API (what /status shows) --------------------------------------
 
-def _read_oauth_token():
-    """Access token from Claude Code's credentials file, if still valid."""
+def _http_json(url, payload=None, headers=None):
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers or {})
+    ctx = ssl.create_default_context(
+        cafile=os.environ.get("SSL_CERT_FILE")
+        or os.environ.get("REQUESTS_CA_BUNDLE") or None)
+    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT, context=ctx) as r:
+        return json.load(r)
+
+
+def _atomic_write(path, text, mode=0o600):
+    tmp = path.with_suffix(".{}.tmp".format(os.getpid()))
+    tmp.write_text(text, encoding="utf-8")
+    os.chmod(str(tmp), mode)
+    os.replace(str(tmp), str(path))
+
+
+def _refresh_token(creds, oauth):
+    """Refresh an expired access token — and write the rotated tokens back
+    to Claude Code's credentials file (refresh tokens rotate; keeping the
+    old one on disk would break the CLI's own login)."""
+    resp = _http_json(TOKEN_URL, {
+        "grant_type": "refresh_token",
+        "refresh_token": oauth["refreshToken"],
+        "client_id": OAUTH_CLIENT_ID,
+    }, {"Content-Type": "application/json"})
+    access = resp.get("access_token")
+    if not access:
+        return None
+    oauth["accessToken"] = access
+    if resp.get("refresh_token"):
+        oauth["refreshToken"] = resp["refresh_token"]
+    oauth["expiresAt"] = int(
+        (time.time() + int(resp.get("expires_in", 3600))) * 1000)
+    creds["claudeAiOauth"] = oauth
+    _atomic_write(CREDENTIALS_PATH, json.dumps(creds))
+    return access
+
+
+def _read_oauth_token(allow_refresh=True):
+    """Valid access token from Claude Code's credentials, refreshing it in
+    place when expired so usage is available whenever a session exists."""
     try:
         with CREDENTIALS_PATH.open("r", encoding="utf-8") as fh:
             creds = json.load(fh)
@@ -56,9 +104,42 @@ def _read_oauth_token():
     oauth = creds.get("claudeAiOauth") or {}
     token = oauth.get("accessToken")
     expires = oauth.get("expiresAt")
-    if token and expires and expires / 1000.0 < time.time() + 60:
-        return None  # expired; let the estimator take over
-    return token
+    if token and (not expires or expires / 1000.0 > time.time() + 60):
+        return token
+    if allow_refresh and oauth.get("refreshToken"):
+        try:
+            return _refresh_token(creds, oauth)
+        except Exception:
+            return None
+    return None
+
+
+# --- disk cache: the always-running bar process keeps this warm so the menu
+# opens with data instantly instead of waiting on the network ---------------
+
+def _save_disk(windows):
+    try:
+        config.STATUSBAR_DIR.mkdir(parents=True, exist_ok=True)
+        ser = {k: {"pct": w["pct"],
+                   "resets_at": w["resets_at"].isoformat()
+                   if w.get("resets_at") else None}
+               for k, w in windows.items()}
+        _atomic_write(DISK_CACHE, json.dumps({"at": time.time(),
+                                              "windows": ser}), 0o644)
+    except Exception:
+        pass
+
+
+def _load_disk(max_age):
+    try:
+        raw = json.loads(DISK_CACHE.read_text(encoding="utf-8"))
+        if time.time() - float(raw.get("at", 0)) > max_age:
+            return None
+        return {k: {"pct": float(w["pct"]),
+                    "resets_at": _parse_reset(w.get("resets_at"))}
+                for k, w in (raw.get("windows") or {}).items()}
+    except Exception:
+        return None
 
 
 def _parse_reset(iso):
@@ -81,30 +162,37 @@ def api_snapshot():
     now = time.time()
     if now - _api_cache["at"] < REFRESH_SECS:
         return _api_cache["data"]
+
+    # another process (the bar stream) refreshes every ~60s; reuse its
+    # answer from disk so e.g. the menu never waits on the network
+    disk = _load_disk(DISK_FRESH)
+    if disk:
+        _api_cache.update(at=now, data=disk, good_at=now)
+        return disk
+
     _api_cache["at"] = now
 
     def _fail():
         # transient failure: keep the last good answer for a grace period
-        if now - _api_cache["good_at"] > API_STALE_GRACE:
-            _api_cache["data"] = None
-        return _api_cache["data"]
+        if now - _api_cache["good_at"] <= API_STALE_GRACE and _api_cache["data"]:
+            return _api_cache["data"]
+        stale = _load_disk(API_STALE_GRACE)
+        if stale:
+            return stale
+        _api_cache["data"] = None
+        return None
 
     token = _read_oauth_token()
     if not token:
         return _fail()
 
     try:
-        ctx = ssl.create_default_context(
-            cafile=os.environ.get("SSL_CERT_FILE")
-            or os.environ.get("REQUESTS_CA_BUNDLE") or None)
-        req = urllib.request.Request(USAGE_URL, headers={
+        payload = _http_json(USAGE_URL, headers={
             "Authorization": "Bearer " + token,
             "anthropic-beta": "oauth-2025-04-20",
             "Content-Type": "application/json",
             "User-Agent": "claude-status-bar",
         })
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-            payload = json.load(resp)
     except Exception:
         return _fail()
 
@@ -126,6 +214,7 @@ def api_snapshot():
     if windows:
         _api_cache["data"] = windows
         _api_cache["good_at"] = now
+        _save_disk(windows)
         return windows
     return _fail()
 
@@ -327,6 +416,42 @@ def block_percent(settings=None):
     if windows and "five_hour" in windows:
         return windows["five_hour"]["pct"]
     return None
+
+
+def debug():
+    """Step-by-step diagnosis of the usage pipeline (no secrets printed)."""
+    print("credenciais:", CREDENTIALS_PATH,
+          "existe" if CREDENTIALS_PATH.exists() else "NÃO EXISTE")
+    exp = None
+    try:
+        oauth = json.loads(CREDENTIALS_PATH.read_text()).get("claudeAiOauth") or {}
+        exp = oauth.get("expiresAt")
+        print("  accessToken presente:", bool(oauth.get("accessToken")),
+              "| refreshToken presente:", bool(oauth.get("refreshToken")))
+        if exp:
+            delta = exp / 1000.0 - time.time()
+            print("  expira em: {:+.0f} min".format(delta / 60))
+    except Exception as e:
+        print("  leitura falhou:", e)
+    tok = _read_oauth_token()
+    print("token utilizável:", bool(tok))
+    if tok:
+        try:
+            payload = _http_json(USAGE_URL, headers={
+                "Authorization": "Bearer " + tok,
+                "anthropic-beta": "oauth-2025-04-20",
+                "Content-Type": "application/json",
+                "User-Agent": "claude-status-bar",
+            })
+            print("HTTP OK; chaves:", sorted(payload.keys())
+                  if isinstance(payload, dict) else type(payload))
+        except urllib.error.HTTPError as e:
+            print("HTTP", e.code, e.read().decode()[:200])
+        except Exception as e:
+            print("requisição falhou:", type(e).__name__, str(e)[:200])
+    disk = _load_disk(10 ** 9)
+    print("cache em disco:", "presente" if disk else "vazio", "->", DISK_CACHE)
+    print("linhas do menu:", menu_lines({}) or "(nenhuma)")
 
 
 def menu_lines(settings=None):
