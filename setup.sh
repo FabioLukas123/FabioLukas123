@@ -20,30 +20,22 @@ echo "==> Registrando hooks do Claude Code..."
 
 WAYBAR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/waybar"
 if [[ -d "${WAYBAR_DIR}" ]] || command -v waybar >/dev/null 2>&1; then
-  echo "==> Waybar detectada — configurando módulos (sem tray)..."
-  "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py"
-  # O menu nativo precisa dos bindings GTK NO PYTHON DO SISTEMA (o pacman só
-  # instala lá; pyenv/conda/venv não os enxergam).
-  GTK_PY="/usr/bin/python3"; [[ -x "${GTK_PY}" ]] || GTK_PY="${PYTHON}"
-  MISSING=""
-  "${GTK_PY}" -c "import gi" >/dev/null 2>&1 || MISSING="python-gobject gtk3 gtk-layer-shell"
-  if [[ -z "${MISSING}" ]]; then
-    "${GTK_PY}" -c "import gi; gi.require_version('GtkLayerShell','0.1')" >/dev/null 2>&1 || \
-      MISSING="gtk-layer-shell"
+  echo "==> Waybar detectada — restaurando o app de bandeja original (módulo tray)..."
+  "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py" --restore-tray
+
+  # dependências do app de bandeja no python do sistema
+  SYS_PY="/usr/bin/python3"; [[ -x "${SYS_PY}" ]] || SYS_PY="${PYTHON}"
+  if command -v pacman >/dev/null 2>&1; then
+    sudo pacman -S --needed --noconfirm \
+      python-pillow python-gobject gtk3 libayatana-appindicator || true
   fi
-  if [[ -n "${MISSING}" ]]; then
-    if command -v pacman >/dev/null 2>&1; then
-      echo "==> Instalando dependências do menu nativo (${MISSING})..."
-      sudo pacman -S --needed --noconfirm ${MISSING} || \
-        echo "! pacman falhou; diagnóstico: ${GTK_PY} -m statusbar --menu-debug"
-    else
-      echo "! Instale pela sua distro: ${MISSING}"
-    fi
-  fi
-  echo "==> Diagnóstico do menu:"
-  PYTHONPATH="${REPO_DIR}" "${GTK_PY}" -m statusbar --menu-debug 2>&1 | sed 's/^/    /' || true
+  "${SYS_PY}" -c "import pystray" >/dev/null 2>&1 || \
+    "${SYS_PY}" -m pip install --user --quiet --break-system-packages pystray 2>/dev/null || \
+    "${SYS_PY}" -m pip install --user --quiet pystray || true
+
+  bash "${REPO_DIR}/packaging/arch/install-autostart.sh"
   echo
-  echo "Tudo pronto. Abra uma sessão nova do Claude Code e o 🦀 aparece na barra."
+  echo "Tudo pronto. O ícone do Claude aparece no tray da Waybar com o menu padrão."
   exit 0
 fi
 

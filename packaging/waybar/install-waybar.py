@@ -167,7 +167,27 @@ def patch_bar(bar):
     return notes
 
 
-def patch_config(path):
+def restore_tray_bar(bar):
+    """Undo the custom modules and bring the classic tray module back."""
+    notes = []
+    ours = set(MODULES) | set(LEGACY)
+    for name in ours:
+        if bar.pop(name, None) is not None:
+            notes.append("módulo {} removido".format(name))
+    for key in ("modules-left", "modules-center", "modules-right"):
+        mods = bar.get(key)
+        if isinstance(mods, list):
+            bar[key] = [m for m in mods if m not in ours]
+    placed = any("tray" in (bar.get(k) or [])
+                 for k in ("modules-left", "modules-center", "modules-right"))
+    if not placed:
+        bar["modules-right"] = ["tray"] + list(bar.get("modules-right") or [])
+        notes.append('módulo "tray" restaurado em modules-right')
+    bar.setdefault("tray", {"spacing": 10})
+    return notes
+
+
+def patch_config(path, patcher=patch_bar):
     raw = path.read_text(encoding="utf-8")
     data = json.loads(strip_jsonc(raw))
 
@@ -175,24 +195,27 @@ def patch_config(path):
     shutil.copy2(path, backup)
 
     if isinstance(data, list):
-        notes = patch_bar(data[0]) if data else []
+        notes = patcher(data[0]) if data else []
     else:
-        notes = patch_bar(data)
+        notes = patcher(data)
 
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
                     encoding="utf-8")
     return backup, notes
 
 
-def patch_style(d):
+def patch_style(d, remove=False):
     css = d / "style.css"
     text = css.read_text(encoding="utf-8") if css.is_file() else ""
     if STYLE_MARK_BEGIN in text:
         start = text.index(STYLE_MARK_BEGIN)
         end = text.index(STYLE_MARK_END) + len(STYLE_MARK_END)
-        text = text[:start] + STYLE_BLOCK.strip() + text[end:]
-    else:
+        replacement = "" if remove else STYLE_BLOCK.strip()
+        text = (text[:start] + replacement + text[end:]).strip() + "\n"
+    elif not remove:
         text = text.rstrip() + "\n\n" + STYLE_BLOCK
+    else:
+        return
     css.write_text(text, encoding="utf-8")
 
 
@@ -222,6 +245,7 @@ def reload_waybar():
 
 
 def main():
+    restore = "--restore-tray" in sys.argv[1:]
     d = waybar_dir()
     cfg = find_config(d)
     if cfg is None:
@@ -229,7 +253,8 @@ def main():
         print("  Snippets prontos estão em packaging/waybar/ para incluir manualmente.")
         sys.exit(1)
     try:
-        backup, notes = patch_config(cfg)
+        backup, notes = patch_config(
+            cfg, restore_tray_bar if restore else patch_bar)
     except Exception as exc:
         print("! Não consegui editar {} com segurança: {}".format(cfg, exc))
         print("  Nada foi alterado.")
@@ -240,11 +265,16 @@ def main():
     if not notes:
         print("  - já estava configurado; nada a fazer")
     print("  (comentários do JSONC não são preservados — o backup guarda o original)")
-    patch_style(d)
-    print("✓ style.css: bloco de estilo aplicado/atualizado.")
-    disable_tray_autostart()
-    reload_waybar()
-    print("Pronto — Clawd 🦀 e Codex aparecem na sua barra, sem o módulo tray.")
+    patch_style(d, remove=restore)
+    if restore:
+        print("✓ style.css: bloco custom removido.")
+        reload_waybar()
+        print("Pronto — módulo tray restaurado; o app de bandeja mostra o menu padrão.")
+    else:
+        print("✓ style.css: bloco de estilo aplicado/atualizado.")
+        disable_tray_autostart()
+        reload_waybar()
+        print("Pronto — Clawd 🦀 e Codex aparecem na sua barra, sem o módulo tray.")
 
 
 if __name__ == "__main__":

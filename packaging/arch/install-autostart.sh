@@ -6,7 +6,9 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PYTHON="$(command -v python3 || command -v python)"
+# system python: pacman installs Pillow/GTK bindings only there
+PYTHON="/usr/bin/python3"
+[[ -x "${PYTHON}" ]] || PYTHON="$(command -v python3 || command -v python)"
 
 if [[ -z "${PYTHON}" ]]; then
   echo "! python3 not found on PATH." >&2
@@ -54,7 +56,9 @@ echo "✓ Installed systemd user service and XDG autostart entry."
 
 if command -v systemctl >/dev/null 2>&1; then
   systemctl --user daemon-reload || true
-  systemctl --user enable --now claude-status-bar.service || \
+  systemctl --user enable claude-status-bar.service >/dev/null 2>&1 || true
+  # restart (not just start) so re-runs pick up new code immediately
+  systemctl --user restart claude-status-bar.service || \
     echo "! Could not start via systemctl --user (no graphical session?). It will start on next login."
   echo "  Manage with: systemctl --user {status,restart,stop} claude-status-bar"
 fi
