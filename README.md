@@ -126,40 +126,43 @@ the reference for what it writes, if you prefer to do it by hand.
 
 Waybar's `tray` module hosts **every** StatusNotifierItem on the system
 (flameshot, bluetooth, …). If you only want the Claude status in your bar,
-skip the tray app entirely and use the built-in Waybar mode — it streams
-custom-module JSON and needs only the Python standard library:
+skip the tray app entirely: the **real artwork** (Clawd poses, walking
+animation, Codex glyphs) is shown through Waybar's `image` modules using
+pre-baked PNG frames shipped in `statusbar/assets/waybar/`, and a `custom`
+module next to it carries the text. Runtime needs only the Python standard
+library:
 
 ```jsonc
 // ~/.config/waybar/config.jsonc
-"modules-right": ["custom/claude", "custom/codex", /* your modules */],
+"modules-right": ["image#codex", "image#claude", "custom/claude", /* yours */],
+"image#codex":  { "exec": "env PYTHONPATH=/path/to/repo python3 -m statusbar --waybar-icon-codex", "size": 22, "interval": 1 },
+"image#claude": { "exec": "env PYTHONPATH=/path/to/repo python3 -m statusbar --waybar-icon", "size": 22, "interval": 1 },
 "custom/claude": {
-    "exec": "env PYTHONPATH=/path/to/claude-status-bar python3 -m statusbar --waybar",
+    "exec": "env PYTHONPATH=/path/to/repo python3 -m statusbar --waybar",
     "return-type": "json",
     "format": "{text}",
     "tooltip": true
-},
-"custom/codex": {
-    "exec": "env PYTHONPATH=/path/to/claude-status-bar python3 -m statusbar --waybar-codex",
-    "return-type": "json",
-    "format": "{text}"
 }
 ```
 
 ```css
 /* ~/.config/waybar/style.css */
+#image                    { padding: 0 4px; }
 #custom-claude            { color: #d97757; }
 #custom-claude.permission { color: #f5c518; }
 #custom-claude.done       { color: #5fb878; }
-#custom-codex.working     { color: #d97757; }
 ```
 
-You get Clawd as text glyphs — 🦀 idle, 🦀✳ working (+ action label and
-timer), 🦀⚠ permission, 🦀✔ done, 🦀💤 asleep, 🦀🎧 Spotify, and the Codex
-module shows `>_` / `>.` `>..` `>...`. The tooltip carries the usage bars
-and `{percentage}` is the estimated 5h-limit usage. All the automatic-pose
-logic and the completion sound work the same; you still run `install.py`
-once for the hooks. Waybar launches and supervises the process itself — no
-autostart needed, and don't run the tray app alongside it.
+`image#claude` shows the actual icons — Clawd at rest / asleep / with
+headphones, the walking (or spark/spinner) animation while working, the
+blinking permission badge, the done check. `image#codex` shows `>_` and the
+animated `>.` `>..` `>...` (a transparent placeholder while Codex is off;
+set `waybar_codex_ink: "dark"` in config.json for light bars). The text
+module adds the action label, timer and permission notice, with the usage
+meters in the tooltip. Frames advance once per second (Waybar's `image`
+minimum interval). A pure-text fallback (`--waybar-codex` stream) still
+exists if you prefer no images. You still run `install.py` once for the
+hooks; Waybar supervises the processes itself — no autostart, no tray app.
 
 ### Run it automatically at login
 
@@ -217,21 +220,23 @@ Right-click the tray icon for a menu with live toggles (persisted to
   (other tools) and a blinking amber "!" while awaiting permission (the
   resting icon stays visible under it; with the badge off, permission shows
   the classic solid amber dot instead)
-- **Usage meters** — the top of the dropdown shows how much of each limit is
-  estimated to be used, as text bars:
+- **Usage meters** — the top of the dropdown (and the Waybar tooltip) shows
+  how much of each limit is used, as text bars:
 
   ```
   5h   ▮▮▮▮▮▮▮▯▯▯ 66% · reseta 01:00
-  7d   ▮▮▮▮▮▮▮▮▯▯ 87% (estimado)
+  7d   ▮▮▮▮▯▯▯▯▯▯ 41% · reseta 05/07 09:00
+  Opus ▮▮▯▯▯▯▯▯▯▯ 18% · reseta 05/07 09:00
   ```
 
-  Anthropic exposes no local API for subscription limits, so this reads the
-  per-message token usage Claude Code writes to `~/.claude/projects/**.jsonl`
-  and reconstructs the 5-hour block and rolling 7-day window (same approach
-  as ccusage). Budgets are auto-calibrated to the largest block/week seen in
-  the last 60 days — accurate once you've hit the limit at least once — or
-  can be pinned in `~/.claude/statusbar/config.json` via `limit_5h_tokens` /
-  `limit_week_tokens`. Treat the percentages as estimates.
+  **These are the same numbers `/status` shows**: they come from the
+  official OAuth usage endpoint (`api.anthropic.com/api/oauth/usage`),
+  queried with the token Claude Code keeps in `~/.claude/.credentials.json`
+  and cached for 60s. When that's unavailable (no credentials, expired
+  token, offline), it falls back to estimating from the per-message token
+  usage in `~/.claude/projects/**.jsonl` (ccusage-style 5h blocks + rolling
+  7 days, budget auto-calibrated or pinned via `limit_5h_tokens` /
+  `limit_week_tokens`) — fallback lines are marked "(estimado)".
 - **Icon colour** — *Claude orange* or *System* (neutral ink; Clawd is
   converted with the upstream brightness→opacity mapping so the sprite keeps
   its depth, eyes punched out as negative space)

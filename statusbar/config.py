@@ -56,6 +56,8 @@ DEFAULT_SETTINGS = {
     "show_codex": True,
     # after this many minutes idle, Clawd falls asleep (0 disables)
     "sleep_after_minutes": 60,
+    # ink of the baked Codex glyphs on Waybar: "light" (dark bars) | "dark"
+    "waybar_codex_ink": "light",
 }
 
 # old asset name -> current one (settings written by previous versions)

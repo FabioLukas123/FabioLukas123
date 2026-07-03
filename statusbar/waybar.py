@@ -39,16 +39,11 @@ import time
 from . import codex as codex_mod
 from . import config, sound, state, usage
 
-# Clawd and his poses, as bar-friendly glyphs.
-GLYPHS = {
-    "idle": "🦀",
-    "clawd-sleep": "🦀💤",
-    "clawd-headphones": "🦀🎧",
-    "clawd-notebook": "🦀💻",
-    "working": "🦀✳",
-    "permission": "🦀⚠",
-    "done": "🦀✔",
-}
+from pathlib import Path
+
+# Baked icon frames for Waybar's `image` module (see
+# scripts/prerender_waybar_icons.py). Everything here is stdlib-only.
+ICONS_DIR = Path(__file__).resolve().parent / "assets" / "waybar"
 
 
 def _emit(payload):
@@ -57,6 +52,8 @@ def _emit(payload):
 
 
 def build_claude_payload(status, override, settings, usage_lines):
+    """Text payload only — the Clawd artwork itself lives in the adjacent
+    image#claude module, so idle states emit empty text."""
     st = status["state"]
     classes = [st]
     if status.get("cowork"):
@@ -65,21 +62,19 @@ def build_claude_payload(status, override, settings, usage_lines):
         classes.append(override)
 
     if st in ("thinking", "tool"):
-        glyph = GLYPHS.get(override) or GLYPHS["working"]
-        text = "{} {}".format(glyph, status["label"] or "Working")
+        text = status["label"] or "Working"
         if status["elapsed"]:
             text += " · " + status["elapsed"]
         alt = "working"
     elif st == "permission":
         n = status["waiting"]
-        text = "{} permissão{}".format(
-            GLYPHS["permission"], "" if n <= 1 else " ({})".format(n))
+        text = "permissão" + ("" if n <= 1 else " ({})".format(n))
         alt = "permission"
     elif st == "done":
-        text = GLYPHS["done"]
+        text = "✓"
         alt = "done"
     else:
-        text = GLYPHS.get(override) or GLYPHS["idle"]
+        text = ""
         alt = override or "idle"
 
     tooltip = [status["project"] or "Claude Status Bar"]
@@ -94,9 +89,9 @@ def build_claude_payload(status, override, settings, usage_lines):
         "class": classes,
         "tooltip": "\n".join(tooltip),
     }
-    data = usage.snapshot(settings)
-    if data and data.get("block_pct") is not None:
-        payload["percentage"] = int(round(data["block_pct"]))
+    pct = usage.block_percent(settings)
+    if pct is not None:
+        payload["percentage"] = int(round(pct))
     return payload
 
 
@@ -162,9 +157,64 @@ def codex_stream():
         time.sleep(0.6 if prev and prev.get("alt") == "working" else 2.0)
 
 
+# --- image module pickers ----------------------------------------------------
+# Waybar's `image` module runs an exec every `interval` seconds and displays
+# the PNG whose path the exec prints. These pickers select the right baked
+# frame for the current state; animation steps on the wall clock.
+
+def _icon(name, fallback="claude_idle_clawd"):
+    path = ICONS_DIR / (name + ".png")
+    if not path.is_file():
+        path = ICONS_DIR / (fallback + ".png")
+    print(str(path), flush=True)
+
+
+def icon_claude_once():
+    settings = config.load_settings()
+    status = state.aggregate(state.read_sessions())
+    override = state.auto_pose(status, settings)
+    sec = int(time.time())
+    st = status["state"]
+
+    if st == "permission":
+        _icon("claude_permission_{}".format(sec % 2))
+    elif st in ("thinking", "tool"):
+        if override == "clawd-notebook":
+            _icon("claude_work_notebook_{}".format(sec % 2))
+        else:
+            anim = settings.get("animation", "spark")
+            if anim == "clawd":
+                _icon("claude_work_clawd_{}".format(sec % 20))
+            elif anim == "spinner":
+                _icon("claude_work_spinner_{}".format(sec % 12))
+            else:
+                _icon("claude_work_spark_{}".format(sec % 8))
+    elif st == "done":
+        _icon("claude_done")
+    else:
+        pose = override or settings.get("idle_icon", "clawd")
+        _icon("claude_idle_{}".format(pose))
+
+
+def icon_codex_once():
+    settings = config.load_settings()
+    c_state = codex_mod.status() if settings.get("show_codex", True) else "off"
+    ink = "dark" if settings.get("waybar_codex_ink") == "dark" else "light"
+    if c_state == "off":
+        _icon("off", fallback="off")
+    elif c_state == "working":
+        _icon("codex_{}_work_{}".format(ink, int(time.time()) % 3))
+    else:
+        _icon("codex_{}_idle".format(ink))
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
-    if "--codex" in argv:
+    if "--icon-codex" in argv:
+        icon_codex_once()
+    elif "--icon" in argv:
+        icon_claude_once()
+    elif "--codex" in argv:
         codex_stream()
     else:
         claude_stream()

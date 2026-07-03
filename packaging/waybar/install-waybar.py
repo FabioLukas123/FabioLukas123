@@ -32,35 +32,43 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 PY = sys.executable or "python3"
 
-CLAUDE_EXEC = 'env PYTHONPATH={repo} {py} -m statusbar --waybar'.format(
-    repo=REPO, py=PY)
-CODEX_EXEC = 'env PYTHONPATH={repo} {py} -m statusbar --waybar-codex'.format(
-    repo=REPO, py=PY)
+def _exec(flag):
+    return 'env PYTHONPATH={repo} {py} -m statusbar {flag}'.format(
+        repo=REPO, py=PY, flag=flag)
 
+
+# image#… modules show the real Clawd/Codex artwork (baked PNG frames);
+# custom/claude carries the text (action label, timer, permission) + tooltip.
 MODULES = {
+    "image#codex": {
+        "exec": _exec("--waybar-icon-codex"),
+        "size": 22,
+        "interval": 1,
+    },
+    "image#claude": {
+        "exec": _exec("--waybar-icon"),
+        "size": 22,
+        "interval": 1,
+    },
     "custom/claude": {
-        "exec": CLAUDE_EXEC,
+        "exec": _exec("--waybar"),
         "return-type": "json",
         "format": "{text}",
         "tooltip": True,
         "restart-interval": 5,
     },
-    "custom/codex": {
-        "exec": CODEX_EXEC,
-        "return-type": "json",
-        "format": "{text}",
-        "restart-interval": 5,
-    },
 }
+PLACEMENT = ["image#codex", "image#claude", "custom/claude"]
+# modules written by older versions of this installer
+LEGACY = ["custom/codex"]
 
 STYLE_MARK_BEGIN = "/* >>> claude-status-bar (managed block) >>> */"
 STYLE_MARK_END = "/* <<< claude-status-bar <<< */"
 STYLE_BLOCK = """{begin}
-#custom-claude {{ color: #d97757; padding: 0 8px; }}
+#image {{ padding: 0 4px; }}
+#custom-claude {{ color: #d97757; padding: 0 6px 0 0; }}
 #custom-claude.permission {{ color: #f5c518; }}
 #custom-claude.done {{ color: #5fb878; }}
-#custom-codex {{ color: #c8ccd4; padding: 0 8px; }}
-#custom-codex.working {{ color: #d97757; }}
 {end}
 """.format(begin=STYLE_MARK_BEGIN, end=STYLE_MARK_END)
 
@@ -124,15 +132,23 @@ def patch_bar(bar):
         if bar.get(name) != definition:
             bar[name] = definition
             notes.append("módulo {} configurado".format(name))
+    for name in LEGACY:
+        if bar.pop(name, None) is not None:
+            notes.append("módulo legado {} removido".format(name))
 
-    placed = any(
-        m in bar.get(key, [])
-        for key in ("modules-left", "modules-center", "modules-right")
-        for m in MODULES
-    )
-    if not placed:
-        right = bar.setdefault("modules-right", [])
-        bar["modules-right"] = ["custom/claude", "custom/codex"] + list(right)
+    # normalise placement: strip our (and legacy) entries everywhere, then
+    # put the current set at the front of modules-right, keeping order
+    ours = set(PLACEMENT) | set(LEGACY)
+    had_ours = False
+    for key in ("modules-left", "modules-center", "modules-right"):
+        mods = bar.get(key)
+        if isinstance(mods, list):
+            kept = [m for m in mods if m not in ours]
+            had_ours = had_ours or len(kept) != len(mods)
+            bar[key] = kept
+    right = bar.get("modules-right") or []
+    bar["modules-right"] = list(PLACEMENT) + list(right)
+    if not had_ours:
         notes.append("módulos adicionados ao início de modules-right")
 
     for key in ("modules-left", "modules-center", "modules-right"):

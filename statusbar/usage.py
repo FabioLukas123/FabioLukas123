@@ -1,30 +1,35 @@
-"""Estimate Claude Code usage limits from the local transcripts.
+"""Claude Code usage limits — the same numbers ``/status`` shows.
 
-Anthropic does not expose subscription limits through any local API, so —
-like the community ccusage tool — this reads the per-message token usage that
-Claude Code records in ``~/.claude/projects/**/*.jsonl`` and estimates:
+Primary source: the official OAuth usage endpoint
+(``GET https://api.anthropic.com/api/oauth/usage``) queried with the token
+Claude Code stores in ``~/.claude/.credentials.json``. That is where
+``/status`` / ``/usage`` get their utilization percentages and reset times,
+so when it is reachable the meters here match them exactly.
 
-- the current 5-hour block (Claude's session limit window): blocks start at
-  the top of the hour of the first message after the previous block ended;
-- the rolling 7-day window (approximates the weekly limit).
+Fallback (no credentials, expired token, offline): estimate from the local
+transcripts, like the community ccusage tool — read the per-message token
+usage Claude Code records in ``~/.claude/projects/**/*.jsonl`` and
+reconstruct the current 5-hour block and rolling 7-day window, calibrating
+the budget to the largest block/window seen in the last ~60 days (or pinned
+via ``limit_5h_tokens`` / ``limit_week_tokens`` in config.json). Estimated
+lines are labelled "(estimado)".
 
-Percentages need a budget. By default the budget is auto-calibrated to the
-largest block / 7-day window seen in the last ~60 days (assuming the user has
-hit or neared the limit at least once); it can be pinned explicitly via
-``limit_5h_tokens`` / ``limit_week_tokens`` in config.json. Either way this
-is an estimate, and it is labelled as such in the UI.
-
-Parsing is incremental: each file's events are cached against (mtime, size),
-so only changed transcripts are re-read.
+Transcript parsing is incremental: each file's events are cached against
+(mtime, size), so only changed transcripts are re-read.
 """
 
 import json
 import os
+import ssl
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
+CREDENTIALS_PATH = Path.home() / ".claude" / ".credentials.json"
+USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 
 BLOCK_HOURS = 5
 SCAN_DAYS = 60          # history window for calibration
@@ -32,6 +37,86 @@ REFRESH_SECS = 60.0
 
 _file_cache = {}        # path -> (mtime, size, [(epoch, tokens), ...])
 _result_cache = {"at": 0.0, "data": None}
+_api_cache = {"at": 0.0, "data": None}
+
+
+# --- official API (what /status shows) --------------------------------------
+
+def _read_oauth_token():
+    """Access token from Claude Code's credentials file, if still valid."""
+    try:
+        with CREDENTIALS_PATH.open("r", encoding="utf-8") as fh:
+            creds = json.load(fh)
+    except Exception:
+        return None
+    oauth = creds.get("claudeAiOauth") or {}
+    token = oauth.get("accessToken")
+    expires = oauth.get("expiresAt")
+    if token and expires and expires / 1000.0 < time.time() + 60:
+        return None  # expired; let the estimator take over
+    return token
+
+
+def _parse_reset(iso):
+    if not iso:
+        return None
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def api_snapshot():
+    """Utilization windows from the official endpoint, or None.
+
+    Returns {"five_hour": {"pct": float, "resets_at": datetime|None},
+             "seven_day": {...}, "seven_day_opus": {...}, ...} — only the
+    windows the API actually reported. Cached for REFRESH_SECS; every
+    failure path degrades silently to None (the transcript estimator).
+    """
+    now = time.time()
+    if now - _api_cache["at"] < REFRESH_SECS:
+        return _api_cache["data"]
+    _api_cache["at"] = now
+
+    token = _read_oauth_token()
+    if not token:
+        _api_cache["data"] = None
+        return None
+
+    try:
+        ctx = ssl.create_default_context(
+            cafile=os.environ.get("SSL_CERT_FILE")
+            or os.environ.get("REQUESTS_CA_BUNDLE") or None)
+        req = urllib.request.Request(USAGE_URL, headers={
+            "Authorization": "Bearer " + token,
+            "anthropic-beta": "oauth-2025-04-20",
+            "Content-Type": "application/json",
+            "User-Agent": "claude-status-bar",
+        })
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            payload = json.load(resp)
+    except Exception:
+        _api_cache["data"] = None
+        return None
+
+    windows = {}
+
+    def add(name, obj):
+        if isinstance(obj, dict) and obj.get("utilization") is not None:
+            try:
+                windows[name] = {
+                    "pct": float(obj["utilization"]),
+                    "resets_at": _parse_reset(obj.get("resets_at")),
+                }
+            except (TypeError, ValueError):
+                pass
+
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            add(key, value)
+    _api_cache["data"] = windows or None
+    return _api_cache["data"]
 
 
 def _parse_ts(ts):
@@ -208,21 +293,64 @@ def _fmt_tokens(n):
     return str(n)
 
 
+def _fmt_reset(dt, weekly=False):
+    if dt is None:
+        return ""
+    local = dt.astimezone()
+    stamp = local.strftime("%d/%m %H:%M") if weekly else local.strftime("%H:%M")
+    return " · reseta {}".format(stamp)
+
+
+# API window key -> (menu label, is-weekly)
+_WINDOW_LABELS = [
+    ("five_hour", "5h  ", False),
+    ("seven_day", "7d  ", True),
+    ("seven_day_opus", "Opus", True),
+    ("seven_day_sonnet", "Sonnet", True),
+]
+
+
+def block_percent(settings=None):
+    """Current 5h utilization (API when available, else estimate) or None."""
+    windows = api_snapshot()
+    if windows and "five_hour" in windows:
+        return windows["five_hour"]["pct"]
+    data = snapshot(settings)
+    return data["block_pct"] if data else None
+
+
 def menu_lines(settings=None):
-    """Two ready-to-display menu strings, or [] when there is no data."""
+    """Ready-to-display usage strings — identical to /status when the
+    official API is reachable, transcript estimates otherwise."""
+    windows = api_snapshot()
+    if windows:
+        lines = []
+        for key, label, weekly in _WINDOW_LABELS:
+            w = windows.get(key)
+            if not w:
+                continue
+            lines.append("{} {} {:.0f}%{}".format(
+                label, bar(w["pct"]), w["pct"],
+                _fmt_reset(w.get("resets_at"), weekly)))
+        # any extra windows the API added that we don't know labels for
+        for key, w in windows.items():
+            if key not in {k for k, _, _ in _WINDOW_LABELS}:
+                lines.append("{} {} {:.0f}%".format(key, bar(w["pct"]), w["pct"]))
+        if lines:
+            return lines
+
     data = snapshot(settings)
     if not data:
         return []
     if data["block_pct"] is not None:
-        l1 = "5h   {} {:.0f}% · reseta {}".format(
+        l1 = "5h   {} {:.0f}% · reseta {} (estimado)".format(
             bar(data["block_pct"]), data["block_pct"], data["block_reset"])
     else:
-        l1 = "5h   {} tokens · reseta {}".format(
+        l1 = "5h   {} tokens · reseta {} (estimado)".format(
             _fmt_tokens(data["block_tokens"]), data["block_reset"])
     if data["week_pct"] is not None:
-        l2 = "7d   {} {:.0f}%{}".format(
-            bar(data["week_pct"]), data["week_pct"],
-            " (estimado)" if data["calibrated_week"] else "")
+        l2 = "7d   {} {:.0f}% (estimado)".format(
+            bar(data["week_pct"]), data["week_pct"])
     else:
-        l2 = "7d   {} tokens".format(_fmt_tokens(data["week_tokens"]))
+        l2 = "7d   {} tokens (estimado)".format(_fmt_tokens(data["week_tokens"]))
     return [l1, l2]

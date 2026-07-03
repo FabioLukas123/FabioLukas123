@@ -10,7 +10,15 @@ import sys
 
 def main():
     args = sys.argv[1:]
-    if "--waybar-codex" in args:
+    if "--waybar-icon-codex" in args:
+        from .waybar import icon_codex_once
+
+        icon_codex_once()
+    elif "--waybar-icon" in args:
+        from .waybar import icon_claude_once
+
+        icon_claude_once()
+    elif "--waybar-codex" in args:
         from .waybar import codex_stream
 
         codex_stream()
