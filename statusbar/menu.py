@@ -88,6 +88,11 @@ def _show_gtk_menu():
     if not Gtk.init_check([])[0]:
         return False
 
+    # the original dropdown was dark; never render a white menu
+    gtk_settings = Gtk.Settings.get_default()
+    if gtk_settings:
+        gtk_settings.set_property("gtk-application-prefer-dark-theme", True)
+
     settings = config.load_settings()
     sessions = state.read_sessions()
     status = state.aggregate(sessions)
@@ -190,77 +195,18 @@ def _show_gtk_menu():
     return True
 
 
-# --- launcher fallback (only when GTK is unavailable) -----------------------
-
-ON, OFF = "●", "○"
-CHECK_ON, CHECK_OFF = "[x]", "[ ]"
-SEP = "─" * 34
-
-
-def _run_menu(lines, prompt="Claude Status"):
-    text = "\n".join(lines)
-    candidates = [
-        (["rofi", "-dmenu", "-i", "-p", prompt], text),
-        (["wofi", "--dmenu", "--prompt", prompt], text),
-        (["fuzzel", "--dmenu", "--prompt", prompt + " "], text),
-        (["zenity", "--list", "--title", prompt, "--column", "Opção",
-          "--width", "460", "--height", "560"] + lines, None),
-    ]
-    for cmd, stdin in candidates:
-        if not shutil.which(cmd[0]):
-            continue
-        try:
-            result = subprocess.run(
-                cmd, input=stdin, text=True, capture_output=True, timeout=120)
-            return (result.stdout or "").strip() or None
-        except Exception:
-            continue
-    return None
-
-
-def _build_lines(settings):
-    lines = []
-    for line in usage.menu_lines(settings) or ["(sem dados de uso ainda)"]:
-        lines.append("  " + line)
-    lines.append(SEP)
-    for value, label in ANIMATIONS:
-        mark = ON if settings.get("animation") == value else OFF
-        lines.append("{} Animação: {}".format(mark, label))
-    lines.append(SEP)
-    for value, label in IDLE_ICONS:
-        mark = ON if settings.get("idle_icon") == value else OFF
-        lines.append("{} Ocioso: {}".format(mark, label))
-    lines.append(SEP)
-    for key, label in TOGGLES:
-        mark = CHECK_ON if settings.get(key, True) else CHECK_OFF
-        lines.append("{} {}".format(mark, label))
-    return lines
-
-
-def _apply(choice, settings):
-    body = choice.lstrip("●○[x] ").strip()
-    for value, label in ANIMATIONS:
-        if body == "Animação: {}".format(label):
-            settings["animation"] = value
-            return True
-    for value, label in IDLE_ICONS:
-        if body == "Ocioso: {}".format(label):
-            settings["idle_icon"] = value
-            return True
-    for key, label in TOGGLES:
-        if body == label:
-            settings[key] = not settings.get(key, True)
-            return True
-    return False
-
-
 def show():
+    """Native GTK dropdown only — there is deliberately no launcher-window
+    fallback. If GTK bindings are missing, say so via notification instead
+    of ever opening some other UI."""
     if _show_gtk_menu():
         return
-    settings = config.load_settings()
-    choice = _run_menu(_build_lines(settings))
-    if choice and _apply(choice, settings):
-        config.save_settings(settings)
+    if shutil.which("notify-send"):
+        subprocess.run(
+            ["notify-send", "-a", "Claude Status Bar", "Menu indisponível",
+             "Rode `npm run update` para instalar o menu nativo "
+             "(python-gobject / gtk3)."],
+            check=False)
 
 
 def notify():

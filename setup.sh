@@ -22,8 +22,15 @@ WAYBAR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/waybar"
 if [[ -d "${WAYBAR_DIR}" ]] || command -v waybar >/dev/null 2>&1; then
   echo "==> Waybar detectada — configurando módulos (sem tray)..."
   "${PYTHON}" "${REPO_DIR}/packaging/waybar/install-waybar.py"
+  # o menu nativo de clique precisa dos bindings GTK; instala se faltar
   if ! "${PYTHON}" -c "import gi" >/dev/null 2>&1; then
-    echo "! Para o menu nativo ao clicar no ícone, instale: sudo pacman -S python-gobject gtk3"
+    if command -v pacman >/dev/null 2>&1; then
+      echo "==> Instalando dependências do menu nativo (python-gobject gtk3 gtk-layer-shell)..."
+      sudo pacman -S --needed --noconfirm python-gobject gtk3 gtk-layer-shell || \
+        echo "! Não consegui instalar via pacman; o menu de clique ficará indisponível até instalar python-gobject."
+    else
+      echo "! Instale python-gobject + gtk3 + gtk-layer-shell pela sua distro para o menu de clique."
+    fi
   fi
   echo
   echo "Tudo pronto. Abra uma sessão nova do Claude Code e o 🦀 aparece na barra."
