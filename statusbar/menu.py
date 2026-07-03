@@ -67,7 +67,22 @@ def _headline(status):
 # pointer popup, and only then to the launcher list.
 
 def _show_gtk_menu():
-    """Returns (ok, reason). *reason* names the exact failing step."""
+    """Returns (ok, reason); every crash lands in menu.log with traceback."""
+    try:
+        return _gtk_menu_impl()
+    except Exception:
+        import traceback
+
+        tb = traceback.format_exc()
+        try:
+            config.STATUSBAR_DIR.mkdir(parents=True, exist_ok=True)
+            (config.STATUSBAR_DIR / "menu.log").write_text(tb, encoding="utf-8")
+        except Exception:
+            pass
+        return False, tb.strip().splitlines()[-1]
+
+
+def _gtk_menu_impl():
     try:
         import gi
     except Exception:
@@ -106,6 +121,15 @@ def _show_gtk_menu():
     settings = config.load_settings()
     sessions = state.read_sessions()
     status = state.aggregate(sessions)
+
+    if have_layer_shell:
+        # A real xdg_popup grab needs a fresh input serial, which a process
+        # spawned by a bar click does not have — Wayland compositors dismiss
+        # the popup instantly ("nothing opens"). So on Wayland the menu is a
+        # layer-shell PANEL anchored top-right (same mechanism as Waybar
+        # itself), styled like the classic dark dropdown. Always maps.
+        return _panel_menu(Gtk, Gdk, GLib, GtkLayerShell,
+                           settings, sessions, status)
 
     menu = Gtk.Menu()
 
@@ -172,35 +196,137 @@ def _show_gtk_menu():
 
     menu.connect("deactivate", Gtk.main_quit)
     menu.show_all()
-
-    if have_layer_shell:
-        # invisible 1x1 anchor pinned to the top-right corner (the modules
-        # area); the menu drops from it like a real bar dropdown
-        anchor = Gtk.Window()
-        anchor.set_default_size(1, 1)
-        anchor.set_decorated(False)
-        anchor.set_opacity(0.0)
-        GtkLayerShell.init_for_window(anchor)
-        GtkLayerShell.set_layer(anchor, GtkLayerShell.Layer.OVERLAY)
-        GtkLayerShell.set_anchor(anchor, GtkLayerShell.Edge.TOP, True)
-        GtkLayerShell.set_anchor(anchor, GtkLayerShell.Edge.RIGHT, True)
-        GtkLayerShell.set_margin(anchor, GtkLayerShell.Edge.RIGHT, 8)
-
-        def popup(*_a):
-            menu.popup_at_widget(anchor.get_child() or anchor,
-                                 Gdk.Gravity.SOUTH_EAST,
-                                 Gdk.Gravity.NORTH_EAST, None)
-            return False
-
-        anchor.connect("map-event", lambda *_a: GLib.idle_add(popup))
-        menu.connect("deactivate", lambda *_a: anchor.destroy())
-        anchor.show_all()
-    else:
-        # X11 (XWayland) fallback: classic popup at pointer
-        menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+    # X11 (XWayland) path: classic popup at pointer
+    menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
 
     # safety: never leave a stray process if the menu loses its grab
     GLib.timeout_add_seconds(40, Gtk.main_quit)
+    Gtk.main()
+    return True, ""
+
+
+_PANEL_CSS = b"""
+window { background-color: #2b2d36; }
+.menurow { padding: 5px 14px; }
+.menurow label { color: #e7e8ee; font-size: 13px; }
+.menurow:hover { background-color: #3c404e; }
+.info label { color: #9aa0ad; }
+separator { background-color: #464a57; min-height: 1px; }
+"""
+
+
+def _panel_menu(Gtk, Gdk, GLib, GtkLayerShell, settings, sessions, status):
+    import signal
+
+    # second click on the icon closes the open menu instead of stacking one
+    pidfile = config.STATUSBAR_DIR / "menu.pid"
+    try:
+        os.kill(int(pidfile.read_text()), signal.SIGTERM)
+        pidfile.unlink()
+        return True, ""
+    except Exception:
+        pass
+    try:
+        config.STATUSBAR_DIR.mkdir(parents=True, exist_ok=True)
+        pidfile.write_text(str(os.getpid()))
+    except Exception:
+        pass
+
+    win = Gtk.Window()
+    win.set_decorated(False)
+    GtkLayerShell.init_for_window(win)
+    GtkLayerShell.set_layer(win, GtkLayerShell.Layer.OVERLAY)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.TOP, True)
+    GtkLayerShell.set_anchor(win, GtkLayerShell.Edge.RIGHT, True)
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.TOP, 6)
+    GtkLayerShell.set_margin(win, GtkLayerShell.Edge.RIGHT, 6)
+    try:
+        GtkLayerShell.set_keyboard_mode(
+            win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+    except Exception:
+        pass
+
+    provider = Gtk.CssProvider()
+    provider.load_from_data(_PANEL_CSS)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(), provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+    win.add(box)
+
+    def quit_all(*_a):
+        try:
+            pidfile.unlink()
+        except Exception:
+            pass
+        Gtk.main_quit()
+
+    def save_and_quit():
+        config.save_settings(settings)
+        quit_all()
+
+    def add_row(text, action=None, info=False):
+        label = Gtk.Label(label=text, xalign=0)
+        ev = Gtk.EventBox()
+        ev.add(label)
+        ctx = ev.get_style_context()
+        ctx.add_class("menurow")
+        if info or action is None:
+            ctx.add_class("info")
+        if action is not None:
+            ev.connect("button-press-event", lambda *_a: (action(), True)[1])
+        box.pack_start(ev, False, False, 0)
+
+    def add_sep():
+        box.pack_start(Gtk.Separator(), False, False, 3)
+
+    add_row(_headline(status), info=True)
+    for line in usage.menu_lines(settings):
+        add_row(line, info=True)
+    add_sep()
+    if len(sessions) > 1:
+        for s in sessions[:config.MAX_MENU_SESSIONS]:
+            add_row(state.session_line(s), info=True)
+        add_sep()
+
+    def toggle(key):
+        def action():
+            settings[key] = not settings.get(key, True)
+            save_and_quit()
+        return action
+
+    def choose(key, value):
+        def action():
+            settings[key] = value
+            save_and_quit()
+        return action
+
+    for key, label in TOGGLES[:2]:
+        mark = "✓" if settings.get(key, True) else "   "
+        add_row("{} {}".format(mark, label), toggle(key))
+    add_sep()
+    add_row("Animation", info=True)
+    for value, label in ANIMATIONS:
+        mark = "●" if settings.get("animation") == value else "○"
+        add_row("  {} {}".format(mark, label), choose("animation", value))
+    add_row("Idle icon", info=True)
+    for value, label in IDLE_ICONS:
+        mark = "●" if settings.get("idle_icon") == value else "○"
+        add_row("  {} {}".format(mark, label), choose("idle_icon", value))
+    add_sep()
+    for key, label in TOGGLES[2:]:
+        mark = "✓" if settings.get(key, True) else "   "
+        add_row("{} {}".format(mark, label), toggle(key))
+    add_sep()
+    add_row("Claude Status Bar v{}".format(__version__), info=True)
+
+    win.connect("focus-out-event", quit_all)
+    win.connect("key-press-event",
+                lambda _w, e: quit_all() if e.keyval == Gdk.KEY_Escape else None)
+    win.connect("destroy", quit_all)
+    GLib.timeout_add_seconds(30, quit_all)
+    win.show_all()
     Gtk.main()
     return True, ""
 
