@@ -15,7 +15,13 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import base_fields, read_event, remove_state, write_state  # noqa: E402
+from _common import (  # noqa: E402
+    base_fields,
+    is_claude_code,
+    read_event,
+    remove_state,
+    write_state,
+)
 
 
 def _maybe_launch_tray():
@@ -50,7 +56,14 @@ def main():
     session_id = event.get("session_id") or event.get("sessionId") or ""
 
     if action == "end":
+        # always clean up, even for foreign clients (harmless if absent)
         remove_state(session_id)
+        return
+
+    # Only real Claude Code sessions light up the status bar. Grok and other
+    # CLIs that reuse ~/.claude/settings.json fire these same hooks; ignore
+    # them so the bar never shows activity for a non-Claude session.
+    if not is_claude_code():
         return
 
     # action == "start"

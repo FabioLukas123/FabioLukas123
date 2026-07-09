@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import (  # noqa: E402
     TOOL_LABELS,
     base_fields,
+    is_claude_code,
     now_ms,
     read_event,
     write_state,
@@ -48,6 +49,10 @@ def main():
     event = read_event()
     session_id = event.get("session_id") or event.get("sessionId") or ""
     if not session_id:
+        return
+
+    # ignore Grok and other CLIs that share ~/.claude/settings.json
+    if not is_claude_code():
         return
 
     common = base_fields(event)

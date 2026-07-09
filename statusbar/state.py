@@ -67,6 +67,17 @@ def read_sessions():
         if not isinstance(data, dict):
             continue
 
+        # Defensive: drop files written by a non-Claude client (Grok etc.)
+        # that shares ~/.claude/settings.json. New hooks skip these entirely;
+        # this also clears any left over from an older version.
+        client = data.get("client")
+        if client and client != "claude":
+            try:
+                path.unlink()
+            except Exception:
+                pass
+            continue
+
         ts = data.get("ts", 0)
         pid = data.get("pid")
         age = now - ts if ts else None

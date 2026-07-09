@@ -36,6 +36,65 @@ TOOL_LABELS = {
 }
 
 
+def _ancestor_blob(max_depth=8):
+    """comm+cmdline of this hook's process ancestors, lowercased (POSIX)."""
+    names = []
+    try:
+        pid = os.getppid()
+        for _ in range(max_depth):
+            if pid <= 1:
+                break
+            try:
+                comm = (Path("/proc") / str(pid) / "comm").read_text().strip()
+            except Exception:
+                comm = ""
+            try:
+                raw = (Path("/proc") / str(pid) / "cmdline").read_bytes()
+                cmd = raw.replace(b"\x00", b" ").decode("utf-8", "ignore")
+            except Exception:
+                cmd = ""
+            names.append((comm + " " + cmd).lower())
+            try:
+                stat = (Path("/proc") / str(pid) / "stat").read_text()
+                pid = int(stat.rsplit(")", 1)[1].split()[1])
+            except Exception:
+                break
+    except Exception:
+        pass
+    return " ".join(names)
+
+
+# other CLIs that reuse ~/.claude/settings.json and fire these same hooks
+_FOREIGN_MARKERS = ("grok", "xai", "gemini", "codex", "aider", "opencode",
+                    "cursor-agent", "qwen", "llxprt")
+
+
+def detect_client():
+    """Which CLI actually fired this hook: a foreign name, or 'claude'.
+
+    Grok and other Claude-Code-compatible CLIs read the same settings.json
+    and run these hooks, which would light up the Claude status bar. Their
+    binary/name shows up in this hook's process ancestry, so we look for a
+    known foreign marker there (and it must not also be a Claude env, in case
+    a fork sets both). Anything without a foreign marker is treated as
+    Claude, so a real session is never hidden by a detection miss.
+    """
+    is_claude_env = bool(
+        os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
+    blob = _ancestor_blob()
+    for name in _FOREIGN_MARKERS:
+        if name in blob and not is_claude_env:
+            return name
+    return "claude"
+
+
+def is_claude_code():
+    """False only when a foreign CLI (Grok, …) is positively detected."""
+    if os.environ.get("CLAUDE_STATUSBAR_ALL_CLIENTS") in ("1", "true", "yes"):
+        return True
+    return detect_client() == "claude"
+
+
 def read_event():
     """Read and parse the JSON hook payload Claude Code sends on stdin."""
     try:
@@ -140,4 +199,5 @@ def base_fields(event):
         "claude_entrypoint": os.environ.get("CLAUDE_CODE_ENTRYPOINT", ""),
         "launcher": "terminal" if from_terminal else "app",
         "term_program": os.environ.get("TERM_PROGRAM", ""),
+        "client": detect_client() or "claude",
     }
