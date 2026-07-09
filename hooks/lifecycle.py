@@ -62,8 +62,10 @@ def main():
 
     # Only real Claude Code sessions light up the status bar. Grok and other
     # CLIs that reuse ~/.claude/settings.json fire these same hooks; ignore
-    # them so the bar never shows activity for a non-Claude session.
+    # them, and scrub any state file an older/buggier detection may have left
+    # behind so a long-lived foreign REPL can't keep a stale entry forever.
     if not is_claude_code():
+        remove_state(session_id)
         return
 
     # action == "start"

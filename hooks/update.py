@@ -23,6 +23,7 @@ from _common import (  # noqa: E402
     is_claude_code,
     now_ms,
     read_event,
+    remove_state,
     write_state,
 )
 
@@ -51,8 +52,11 @@ def main():
     if not session_id:
         return
 
-    # ignore Grok and other CLIs that share ~/.claude/settings.json
+    # ignore Grok and other CLIs that share ~/.claude/settings.json; also
+    # scrub any state file left by an older, buggier detection so a
+    # long-lived foreign REPL can't keep a stale "claude" entry alive forever
     if not is_claude_code():
+        remove_state(session_id)
         return
 
     common = base_fields(event)
