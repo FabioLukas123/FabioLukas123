@@ -75,15 +75,16 @@ def detect_client():
     Grok and other Claude-Code-compatible CLIs read the same settings.json
     and run these hooks, which would light up the Claude status bar. Their
     binary/name shows up in this hook's process ancestry, so we look for a
-    known foreign marker there (and it must not also be a Claude env, in case
-    a fork sets both). Anything without a foreign marker is treated as
-    Claude, so a real session is never hidden by a detection miss.
+    known foreign marker there. This check is unconditional — it does NOT
+    defer to CLAUDECODE/CLAUDE_CODE_ENTRYPOINT, because a compatible CLI may
+    set those same env vars on purpose (or inherit them from the shell) to
+    make itself look like Claude Code to hooks exactly like this one.
+    Anything without a foreign marker is treated as Claude, so a real
+    session is never hidden by a detection miss.
     """
-    is_claude_env = bool(
-        os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
     blob = _ancestor_blob()
     for name in _FOREIGN_MARKERS:
-        if name in blob and not is_claude_env:
+        if name in blob:
             return name
     return "claude"
 
@@ -201,3 +202,20 @@ def base_fields(event):
         "term_program": os.environ.get("TERM_PROGRAM", ""),
         "client": detect_client() or "claude",
     }
+
+
+if __name__ == "__main__":
+    # Diagnostic: `python3 hooks/_common.py` — run this FROM INSIDE the CLI
+    # session you want to inspect (e.g. as a one-off command in Grok's own
+    # shell/tool), so its process is actually in the ancestry being walked.
+    print("PID desta chamada:", os.getpid(), "PPID:", os.getppid())
+    print("CLAUDECODE=", os.environ.get("CLAUDECODE"))
+    print("CLAUDE_CODE_ENTRYPOINT=", os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
+    blob = _ancestor_blob()
+    print("--- cadeia de processos ancestrais (comm+cmdline) ---")
+    print(blob)
+    print("--- marcadores estrangeiros configurados ---")
+    print(_FOREIGN_MARKERS)
+    hits = [m for m in _FOREIGN_MARKERS if m in blob]
+    print("marcadores encontrados no blob:", hits or "nenhum")
+    print("detect_client() ->", detect_client())
