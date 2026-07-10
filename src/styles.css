@@ -1,0 +1,326 @@
+/* EDEN — the veil between the visitor and the world */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background: #020308;
+}
+
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #e8f2ec;
+  -webkit-font-smoothing: antialiased;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ————— the void, before ————— */
+
+.void {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  animation: voidIn 3s ease both;
+}
+
+@keyframes voidIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wordmark {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  font-weight: 400;
+  letter-spacing: 0.55em;
+  margin-left: 0.55em; /* optically recenter the tracking */
+  color: #dff5e8;
+  text-shadow: 0 0 42px rgba(110, 255, 190, 0.35);
+  animation: breatheText 5s ease-in-out infinite;
+}
+
+@keyframes breatheText {
+  0%, 100% { opacity: 0.82; }
+  50% { opacity: 1; }
+}
+
+.void-sub {
+  font-style: italic;
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  letter-spacing: 0.24em;
+  color: rgba(214, 236, 224, 0.55);
+}
+
+.awaken {
+  pointer-events: auto;
+  margin-top: 2.2rem;
+  padding: 0.9rem 3.2rem;
+  background: transparent;
+  border: 1px solid rgba(125, 255, 196, 0.35);
+  border-radius: 999px;
+  color: #bdf3d8;
+  font-family: inherit;
+  font-size: 0.95rem;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  cursor: pointer;
+  transition: all 0.8s ease;
+  animation: awakenPulse 3.4s ease-in-out infinite;
+}
+
+.awaken:hover {
+  background: rgba(125, 255, 196, 0.08);
+  border-color: rgba(125, 255, 196, 0.8);
+  box-shadow: 0 0 44px rgba(110, 255, 190, 0.25);
+  letter-spacing: 0.44em;
+}
+
+@keyframes awakenPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(110, 255, 190, 0.06); }
+  50% { box-shadow: 0 0 34px rgba(110, 255, 190, 0.2); }
+}
+
+.void-note {
+  margin-top: 2.6rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  color: rgba(214, 236, 224, 0.3);
+  text-transform: lowercase;
+}
+
+/* ————— genesis ————— */
+
+.genesis {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.genesis-line {
+  grid-area: 1 / 1;
+  max-width: 34ch;
+  text-align: center;
+  font-size: clamp(1.05rem, 2.6vw, 1.5rem);
+  font-style: italic;
+  letter-spacing: 0.06em;
+  line-height: 1.7;
+  color: rgba(230, 245, 238, 0.92);
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 2.2s ease, transform 2.2s ease;
+}
+
+.genesis-line.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ————— alive ————— */
+
+.biome-title {
+  position: absolute;
+  left: 50%;
+  bottom: 12vh;
+  transform: translate(-50%, 14px);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 2.4s ease, transform 2.4s ease;
+}
+
+.biome-title.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.biome-title h2 {
+  font-weight: 400;
+  font-size: clamp(1.2rem, 3vw, 1.9rem);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+  color: rgba(235, 250, 242, 0.95);
+  text-shadow: 0 0 34px rgba(140, 255, 210, 0.3), 0 2px 18px rgba(0, 0, 0, 0.7);
+}
+
+.biome-title p {
+  margin-top: 0.7rem;
+  font-style: italic;
+  font-size: clamp(0.85rem, 1.9vw, 1.02rem);
+  letter-spacing: 0.1em;
+  color: rgba(220, 240, 230, 0.6);
+}
+
+.whisper {
+  position: absolute;
+  left: 50%;
+  top: 18vh;
+  transform: translateX(-50%);
+  font-style: italic;
+  font-size: clamp(0.8rem, 1.8vw, 0.98rem);
+  letter-spacing: 0.3em;
+  color: rgba(170, 220, 255, 0);
+  text-shadow: 0 0 24px rgba(140, 210, 255, 0.4);
+  transition: color 2.8s ease;
+  white-space: nowrap;
+}
+
+.whisper.visible {
+  color: rgba(190, 228, 255, 0.75);
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 4.5vh;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: rgba(220, 240, 230, 0);
+  transition: color 1.8s ease;
+  animation: hintFloat 3s ease-in-out infinite;
+}
+
+.hint.visible {
+  color: rgba(220, 240, 230, 0.45);
+}
+
+@keyframes hintFloat {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -6px); }
+}
+
+/* ————— the ending ————— */
+
+.ending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  opacity: 0;
+  transition: opacity 4s ease;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(2, 3, 8, 0.25));
+}
+
+.ending.visible {
+  opacity: 1;
+}
+
+.ending h2 {
+  font-weight: 400;
+  font-size: clamp(1.6rem, 4.5vw, 2.6rem);
+  letter-spacing: 0.6em;
+  text-indent: 0.6em;
+  color: rgba(255, 248, 230, 0.95);
+  text-shadow: 0 0 60px rgba(255, 240, 200, 0.45);
+  margin-bottom: 1rem;
+}
+
+.ending p {
+  font-style: italic;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+  letter-spacing: 0.12em;
+  color: rgba(245, 240, 225, 0.72);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.6);
+}
+
+/* ————— the vine (progress) ————— */
+
+.vine {
+  position: absolute;
+  right: 26px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 42vh;
+  width: 2px;
+}
+
+.vine-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(200, 240, 220, 0.12);
+  border-radius: 2px;
+}
+
+.vine-sap {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(125, 255, 196, 0.9), rgba(125, 255, 196, 0.4));
+  border-radius: 2px;
+  transform-origin: top;
+  transform: scaleY(0);
+  box-shadow: 0 0 12px rgba(125, 255, 196, 0.5);
+}
+
+.vine-node {
+  position: absolute;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(200, 240, 220, 0.35);
+}
+
+/* ————— sound ————— */
+
+.sound-toggle {
+  position: absolute;
+  top: 24px;
+  right: 26px;
+  pointer-events: auto;
+  background: transparent;
+  border: none;
+  color: rgba(220, 240, 230, 0.4);
+  font-family: inherit;
+  font-style: italic;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  cursor: pointer;
+  transition: color 0.6s ease;
+}
+
+.sound-toggle:hover {
+  color: rgba(220, 240, 230, 0.85);
+}
+
+@media (max-width: 720px) {
+  .vine { right: 14px; height: 34vh; }
+  .sound-toggle { top: 16px; right: 16px; }
+  .biome-title { bottom: 16vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wordmark, .awaken, .hint { animation: none; }
+}
