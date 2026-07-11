@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Midnight Messages — conversas que só fazem sentido depois da meia-noite</title>
+<meta name="description" content="uma experiência sobre mensagens enviadas tarde demais para serem inocentes, e cedo demais para serem esquecidas." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>" />
+</head>
+<body>
+
+<!-- luz ambiente / bolhas desfocadas -->
+<div class="ambient" aria-hidden="true">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="blob blob-c"></div>
+  <div class="stars"></div>
+  <div class="screen-glow"></div>
+</div>
+
+<!-- ══════════ ABERTURA ══════════ -->
+<div class="intro" id="intro">
+  <div class="intro-inner">
+    <p class="intro-line"><span id="intro-type"></span><span class="cursor" id="intro-cursor">|</span></p>
+    <p class="intro-sub" id="intro-sub">quando o quarto fica escuro<br/>e a tela vira a única luz acesa</p>
+    <div class="msg in intro-bubble" id="intro-bubble">
+      <span class="typing-dots"><i></i><i></i><i></i></span>
+    </div>
+  </div>
+  <button class="intro-skip" id="intro-skip" aria-label="entrar">entrar na madrugada ↓</button>
+</div>
+
+<main id="night" class="night">
+
+  <!-- ══════════ HERO ══════════ -->
+  <header class="hero chapter" id="hero">
+    <div class="hero-bubbles" aria-hidden="true">
+      <div class="ghost-bubble gb-1"></div>
+      <div class="ghost-bubble gb-2"></div>
+      <div class="ghost-bubble gb-3"></div>
+      <div class="ghost-bubble gb-4"></div>
+      <span class="floating-heart fh-1">♡</span>
+      <span class="floating-heart fh-2">♡</span>
+      <span class="floating-heart fh-3">♥</span>
+    </div>
+    <p class="hero-hour reveal">00:00</p>
+    <h1 class="hero-title reveal">
+      <span class="hero-mid">Midnight</span>
+      <span class="hero-msg">Messages</span>
+    </h1>
+    <p class="hero-tag reveal">conversas que só fazem sentido<br/><em>depois da meia-noite</em></p>
+    <div class="hero-sub reveal">
+      <p>mensagens enviadas <strong>tarde demais</strong><br/>para serem inocentes</p>
+      <p>e <strong>cedo demais</strong><br/>para serem esquecidas</p>
+    </div>
+    <div class="scroll-hint reveal" aria-hidden="true">
+      <span class="scroll-dot"></span>
+      <small>desce devagar</small>
+    </div>
+  </header>
+
+  <!-- ══════════ PRIMEIRA CONVERSA ══════════ -->
+  <section class="chapter convo" id="c1">
+    <p class="hour reveal">00:47</p>
+    <div class="thread">
+      <div class="msg in heartable">você ainda está acordada?</div>
+      <p class="hour small reveal">00:48</p>
+      <div class="msg out">tô</div>
+      <div class="msg out">mentira</div>
+      <p class="hour small reveal">00:49</p>
+      <div class="msg out drift">eu sei que você estava esperando<br/>eu mandar alguma coisa</div>
+    </div>
+  </section>
+
+  <!-- ══════════ PRIMEIRO BLOCO ══════════ -->
+  <section class="chapter prose" id="b1">
+    <p class="line reveal">tem gente que entra na nossa vida</p>
+    <p class="line reveal">sem bater na porta</p>
+    <p class="line reveal">sem avisar</p>
+    <p class="line reveal em">e sem nenhuma intenção<br/>de sair cedo</p>
+  </section>
+
+  <!-- ══════════ ESTADO DE DIGITAÇÃO ══════════ -->
+  <section class="chapter typing-state" id="typingstate">
+    <p class="hour reveal">01:13</p>
+    <div class="typing-stack">
+      <div class="msg in ghost reveal"><span class="typing-dots"><i></i><i></i><i></i></span>&nbsp;digitando…</div>
+      <div class="msg in ghost fainter reveal"><span class="typing-dots"><i></i><i></i><i></i></span>&nbsp;digitando…</div>
+      <div class="msg in ghost faintest reveal"><span class="typing-dots"><i></i><i></i><i></i></span>&nbsp;digitando…</div>
+      <p class="stopped reveal">parou de digitar</p>
+    </div>
+  </section>
+
+  <!-- ══════════ FRASE DE TRANSIÇÃO ══════════ -->
+  <section class="chapter prose slim" id="t1">
+    <p class="line big reveal">algumas palavras demoram<br/><span class="pink">segundos</span> para escrever</p>
+    <p class="line big reveal">e <span class="pink">horas</span><br/>para serem enviadas</p>
+  </section>
+
+  <!-- ══════════ CONVERSA 02 ══════════ -->
+  <section class="chapter convo" id="c2">
+    <p class="hour reveal">01:26</p>
+    <div class="thread">
+      <div class="msg in heartable">posso te falar uma coisa?</div>
+      <p class="hour small reveal">01:27</p>
+      <div class="msg out">depende</div>
+      <div class="msg in">você vai rir?</div>
+      <p class="hour small reveal">01:28</p>
+      <div class="msg out">provavelmente</div>
+      <div class="msg in sad">então deixa</div>
+    </div>
+  </section>
+
+  <!-- ══════════ BLOCO SOBRE SILÊNCIO ══════════ -->
+  <section class="chapter prose" id="silencio-bloco">
+    <p class="line big reveal">o silêncio também responde</p>
+    <p class="line quiet reveal">às vezes ele diz:</p>
+    <p class="line whisper reveal">“não sei o que falar”</p>
+    <p class="line quiet reveal">às vezes:</p>
+    <p class="line whisper reveal">“não quero estragar isso”</p>
+    <p class="line quiet reveal">e às vezes ele só diz:</p>
+    <p class="line whisper no reveal">“não”</p>
+  </section>
+
+  <!-- ══════════ SEÇÃO DO SILÊNCIO / VISUALIZADO ══════════ -->
+  <section class="chapter silence" id="silence">
+    <div class="silence-space"></div>
+    <div class="status-stack">
+      <p class="status reveal">enviado <span>01:42</span></p>
+      <p class="status reveal">entregue <span>01:42</span></p>
+      <p class="status seen reveal">visualizado <span>01:43</span></p>
+      <p class="status none reveal">nenhuma resposta</p>
+    </div>
+    <div class="silence-typing" id="silence-typing" aria-hidden="true">
+      <div class="msg in ghost"><span class="typing-dots"><i></i><i></i><i></i></span></div>
+    </div>
+    <div class="silence-space"></div>
+    <div class="center-text">
+      <p class="line big reveal">você já ficou olhando<br/>para a palavra <span class="seen-word">“visualizado”</span></p>
+      <p class="line reveal">como se ela fosse mudar<br/>se esperasse tempo suficiente?</p>
+    </div>
+    <div class="silence-space"></div>
+  </section>
+
+  <!-- ══════════ CONVERSA 03 ══════════ -->
+  <section class="chapter convo" id="c3">
+    <p class="hour reveal">02:04</p>
+    <div class="thread">
+      <div class="msg out">você sumiu</div>
+      <p class="hour small reveal">02:06</p>
+      <div class="msg in">só fui pegar água</div>
+      <div class="msg out">por dois dias?</div>
+      <p class="hour small reveal">02:08</p>
+      <div class="msg in heartable funny">a cozinha é longe</div>
+    </div>
+  </section>
+
+  <!-- ══════════ BLOCO FOFO ══════════ -->
+  <section class="chapter prose soft" id="fofo">
+    <p class="line big reveal">eu gosto quando você <span class="pink">fica</span></p>
+    <p class="line reveal">mesmo sem ter nada importante para dizer</p>
+    <p class="line quiet reveal">mesmo quando a conversa vira:</p>
+    <div class="tiny-thread reveal">
+      <span class="tiny-msg heartable">“hm”</span>
+      <span class="tiny-msg heartable">“sim”</span>
+      <span class="tiny-msg heartable">“kkkk”</span>
+      <span class="tiny-msg heartable">“verdade”</span>
+    </div>
+    <p class="line em reveal">às vezes presença<br/>é mais bonita que assunto</p>
+  </section>
+
+  <!-- ══════════ CORAÇÕES ══════════ -->
+  <section class="chapter hearts-section" id="hearts">
+    <div class="thread narrow">
+      <div class="msg in reacted heartable">você reagiu com <span class="react">❤️</span></div>
+      <div class="msg out">eu fingi que não significava nada</div>
+      <div class="msg in">você também</div>
+      <p class="line em center reveal">nenhum dos dois acreditou</p>
+    </div>
+    <div class="heart-field" aria-hidden="true"></div>
+  </section>
+
+  <!-- ══════════ CONVERSA 04 ══════════ -->
+  <section class="chapter convo" id="c4">
+    <p class="hour reveal">02:31</p>
+    <div class="thread">
+      <div class="msg in deleted" id="deleted-msg">
+        <span class="deleted-real">acho que eu gosto de você</span>
+        <span class="deleted-label">🚫 mensagem apagada</span>
+      </div>
+      <p class="hour small reveal">02:32</p>
+      <div class="msg out">o que você apagou?</div>
+      <div class="msg in">nada</div>
+      <p class="hour small reveal">02:33</p>
+      <div class="msg out heartable">mentiroso</div>
+    </div>
+  </section>
+
+  <!-- ══════════ TRANSIÇÃO ══════════ -->
+  <section class="chapter prose slim" id="t2">
+    <p class="line big reveal">algumas confissões<br/>não desaparecem</p>
+    <p class="line reveal">elas só mudam de lugar</p>
+    <p class="line quiet reveal">saem da conversa</p>
+    <p class="line em reveal">e ficam na cabeça</p>
+  </section>
+
+  <!-- ══════════ BLOCO DE ANSIEDADE ══════════ -->
+  <section class="chapter anxiety" id="anxiety">
+    <div class="pulse-line reveal"><span class="online-dot"></span> online <em>— mas não comigo</em></div>
+    <div class="pulse-line reveal"><span class="typing-dots small-dots"><i></i><i></i><i></i></span> digitando <em>— mas não enviando</em></div>
+    <div class="pulse-line reveal"><span class="seen-check">✓✓</span> visualizando <em>— mas não respondendo</em></div>
+    <p class="line big reveal near-far">tão <span class="near">perto</span> na tela<br/>tão <span class="far">longe</span> em todo o resto</p>
+  </section>
+
+  <!-- ══════════ LIGAÇÃO ══════════ -->
+  <section class="chapter call" id="call">
+    <div class="call-card reveal">
+      <div class="call-icon">📞</div>
+      <p class="call-title">ligação perdida</p>
+      <p class="call-hour">03:07</p>
+      <p class="call-q">ligar novamente?</p>
+      <div class="call-actions">
+        <button class="pill" id="call-yes">sim</button>
+        <button class="pill ghost-pill" id="call-later">talvez amanhã</button>
+      </div>
+      <p class="call-answer" id="call-answer"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ BLOCO MELANCÓLICO ══════════ -->
+  <section class="chapter prose" id="melancolia">
+    <p class="line big reveal">a madrugada exagera tudo</p>
+    <div class="fade-words">
+      <p class="line reveal">a saudade</p>
+      <p class="line reveal">o carinho</p>
+      <p class="line reveal">o ciúme</p>
+      <p class="line reveal">a coragem</p>
+    </div>
+    <p class="line em reveal">e aquela vontade absurda<br/>de mandar uma mensagem<br/>que você vai fingir<br/>que não escreveu amanhã</p>
+  </section>
+
+  <!-- ══════════ CONVERSA 05 ══════════ -->
+  <section class="chapter convo" id="c5">
+    <p class="hour reveal">03:22</p>
+    <div class="thread">
+      <div class="msg out">você pensa em mim?</div>
+      <p class="hour small reveal">03:23</p>
+      <div class="msg in">às vezes</div>
+      <div class="msg out">só às vezes?</div>
+      <p class="hour small reveal">03:24</p>
+      <div class="msg in heartable glow-msg">toda vez que eu tento dormir</div>
+    </div>
+  </section>
+
+  <!-- ══════════ BLOCO ÍNTIMO ══════════ -->
+  <section class="chapter prose slim" id="intimo">
+    <p class="line big reveal">não era amor ainda</p>
+    <p class="line reveal">mas também já não era pouco</p>
+    <p class="line quiet reveal">era aquela coisa sem nome</p>
+    <p class="line em reveal">que faz duas pessoas<br/>continuarem acordadas<br/>mesmo sem assunto</p>
+  </section>
+
+  <!-- ══════════ ÚLTIMA VEZ ONLINE ══════════ -->
+  <section class="chapter lastseen" id="lastseen">
+    <p class="lastseen-text reveal">última vez online hoje às <span>03:41</span></p>
+  </section>
+
+  <!-- ══════════ BLOCO DO AFASTAMENTO ══════════ -->
+  <section class="chapter prose" id="afastamento">
+    <p class="line big reveal">toda conversa muda um dia</p>
+    <p class="line quiet reveal">primeiro:</p>
+    <p class="line reveal">vocês respondem na mesma hora</p>
+    <p class="line quiet reveal">depois:</p>
+    <p class="line dim1 reveal">em alguns minutos</p>
+    <p class="line quiet reveal">depois:</p>
+    <p class="line dim2 reveal">quando der</p>
+    <p class="line em dim3 reveal">e um dia<br/>ninguém percebe<br/>que a última mensagem<br/>já aconteceu</p>
+  </section>
+
+  <!-- ══════════ CONVERSA FINAL ══════════ -->
+  <section class="chapter convo dawn-start" id="cfinal">
+    <p class="hour reveal">04:12</p>
+    <div class="thread">
+      <div class="msg in">boa noite</div>
+      <p class="hour small reveal">04:13</p>
+      <div class="msg out">boa noite</div>
+      <p class="hour small reveal">04:14</p>
+      <div class="msg in heartable">dorme bem</div>
+      <div class="msg out">você também</div>
+      <div class="msg in ghost final-typing" id="final-typing"><span class="typing-dots"><i></i><i></i><i></i></span></div>
+    </div>
+  </section>
+
+  <!-- ══════════ ANTES DO FINAL ══════════ -->
+  <section class="chapter prose slim" id="antes">
+    <div class="unsent reveal" id="unsent">
+      <div class="msg out unsent-msg"><span id="unsent-text">eu queria ter dito mais</span><span class="cursor">|</span></div>
+      <p class="line quiet unsent-note">a mensagem nunca foi enviada</p>
+    </div>
+  </section>
+
+  <!-- ══════════ ENCERRAMENTO ══════════ -->
+  <section class="chapter ending" id="ending">
+    <p class="line big reveal">algumas mensagens acabam</p>
+    <p class="line em reveal">a sensação fica</p>
+    <div class="ending-space"></div>
+    <p class="line quiet reveal">a tela apaga</p>
+    <p class="line quiet reveal">o quarto continua escuro</p>
+    <p class="line reveal">mas por alguns segundos</p>
+    <p class="line em reveal">você ainda sente<br/>que alguém está ali</p>
+  </section>
+
+  <!-- ══════════ FRASE FINAL ══════════ -->
+  <section class="chapter finale" id="finale">
+    <h2 class="finale-phrase reveal">nem toda conversa termina<br/>quando a tela <span class="apaga">apaga</span></h2>
+    <div class="finale-actions reveal">
+      <button class="pill big-pill" id="btn-revive">🌙 reviver a madrugada</button>
+      <button class="pill big-pill ghost-pill" id="btn-silence">🤍 ativar o silêncio</button>
+      <button class="pill big-pill pink-pill" id="btn-deleted">💌 ler mensagens apagadas</button>
+    </div>
+    <p class="finale-credit">midnight messages — feito de madrugada, obviamente</p>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>
